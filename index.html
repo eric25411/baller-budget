@@ -657,7 +657,7 @@
     }
 
     function getBudgetRows() {
-      const payPeriods = (state.payPeriods || []).slice().sort((a, b) => sortByDate(a.payDate, b.payDate));
+      const payPeriods = (state.payPeriods || []).slice().sort((a, b) => b.payDate.localeCompare(a.payDate));
       const scheduleRows = getScheduleRows();
       const spending = state.spending || [];
       const deposits = state.deposits || [];
@@ -878,17 +878,12 @@
     }
 
     function renderBudget() {
-      const rows = getBudgetRows();
+      const rows = getBudgetRows().slice().sort((a, b) => b.payDate.localeCompare(a.payDate));
       const today = getTodayISO();
-      const currentRow = rows.find(row => today >= row.windowStart && today <= row.windowEnd) || rows[0] || null;
-      const pastRows = rows.filter(row => currentRow && row.id !== currentRow.id && row.windowEnd < today);
-      const upcomingRows = rows.filter(row => currentRow ? row.id !== currentRow.id && row.windowStart > today : true);
 
       function renderBudgetPeriod(row, options) {
-        const heading = options && options.heading ? '<div class="budget-section-label">' + options.heading + '</div>' : '';
         const openAttr = options && options.open ? ' open' : '';
-        return heading +
-          '<details class="budget-period"' + openAttr + '>' +
+        return '<details class="budget-period"' + openAttr + '>' +
             '<summary class="budget-summary">' +
               '<div class="budget-summary-main">' +
                 '<h3>' + formatCompactDate(row.payDate) + ' pay period</h3>' +
@@ -924,17 +919,14 @@
           '</details>';
       }
 
-      const currentMarkup = currentRow ? renderBudgetPeriod(currentRow, { open: true, heading: 'Current Period' }) : '<div class="note-box">No pay periods yet.</div>';
-      const upcomingMarkup = upcomingRows.length ? upcomingRows.map(row => renderBudgetPeriod(row, { open: false })).join('') : '<div class="note-box">No upcoming periods yet.</div>';
-      const pastMarkup = pastRows.length ? pastRows.slice().reverse().map(row => renderBudgetPeriod(row, { open: false })).join('') : '<div class="note-box">No past periods yet.</div>';
+      const stackMarkup = rows.length ? rows.map(function(row) {
+        const isCurrent = today >= row.windowStart && today <= row.windowEnd;
+        return renderBudgetPeriod(row, { open: isCurrent });
+      }).join('') : '<div class="note-box">No pay periods yet.</div>';
 
       document.getElementById('tab-budget').innerHTML =
-        '<div class="panel"><div class="panel-head"><div><h2>Budget Tracker</h2><p>Current period stays open by default, while past and upcoming periods stay compact until you need them.</p></div><div class="controls"><button class="btn" id="addPayPeriodBtn">Start New Period</button></div></div><div class="panel-body">' +
-          '<div class="budget-stack">' +
-            currentMarkup +
-            '<div class="budget-section-label">Upcoming Periods</div>' + upcomingMarkup +
-            '<div class="budget-section-label">Past Periods</div>' + pastMarkup +
-          '</div>' +
+        '<div class="panel"><div class="panel-head"><div><h2>Budget Tracker</h2><p>Newest periods stay at the top, and the current period opens by default.</p></div><div class="controls"><button class="btn" id="addPayPeriodBtn">Start New Period</button></div></div><div class="panel-body">' +
+          '<div class="budget-stack">' + stackMarkup + '</div>' +
         '</div></div>';
 
       const add = document.getElementById('addPayPeriodBtn');
@@ -959,7 +951,7 @@
 
     function renderSpending() {
       const rows = (state.spending || []).slice().sort((a, b) => sortByDate(a.date, b.date));
-      const payPeriods = (state.payPeriods || []).slice().sort((a, b) => sortByDate(a.payDate, b.payDate));
+      const payPeriods = (state.payPeriods || []).slice().sort((a, b) => b.payDate.localeCompare(a.payDate));
       const groups = payPeriods.map(function(period) {
         const start = period.payDate;
         const end = toISODate(addDays(parseISODate(period.payDate), 13));
@@ -1032,7 +1024,7 @@
 
     function renderDeposits() {
       const rows = (state.deposits || []).slice().sort((a, b) => sortByDate(a.date, b.date));
-      const payPeriods = (state.payPeriods || []).slice().sort((a, b) => sortByDate(a.payDate, b.payDate));
+      const payPeriods = (state.payPeriods || []).slice().sort((a, b) => b.payDate.localeCompare(a.payDate));
       const groups = payPeriods.map(function(period) {
         const start = period.payDate;
         const end = toISODate(addDays(parseISODate(period.payDate), 13));
