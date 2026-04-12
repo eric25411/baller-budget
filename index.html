@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Baller Budget</title>
+  <title>BudgetFlow</title>
   <style>
     :root {
       --bg-1: #020617;
@@ -12,8 +12,8 @@
       --line: rgba(255, 255, 255, 0.1);
       --text: #f8fafc;
       --muted: #94a3b8;
-      --accent: #c026d3;
-      --accent-soft: rgba(192, 38, 211, 0.18);
+      --accent: #5fa8ff;
+      --accent-soft: rgba(95, 168, 255, 0.18);
       --good: #10b981;
       --warn: #f59e0b;
       --bad: #f43f5e;
@@ -27,7 +27,7 @@
       margin: 0;
       padding: 0;
       font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      background: radial-gradient(circle at top, rgba(192, 38, 211, 0.22), transparent 28%), linear-gradient(180deg, var(--bg-2), var(--bg-1));
+      background: radial-gradient(circle at top, rgba(95, 168, 255, 0.18), transparent 28%), linear-gradient(180deg, var(--bg-2), var(--bg-1));
       color: var(--text);
       min-height: 100%;
     }
@@ -51,9 +51,9 @@
       align-items: center;
       gap: 8px;
       border-radius: 999px;
-      border: 1px solid rgba(192, 38, 211, 0.26);
+      border: 1px solid rgba(95, 168, 255, 0.26);
       background: var(--accent-soft);
-      color: #f5d0fe;
+      color: #d7ebff;
       padding: 7px 12px;
       text-transform: uppercase;
       letter-spacing: 0.18em;
@@ -119,9 +119,9 @@
     }
 
     .tab-btn.active, .btn {
-      background: linear-gradient(180deg, rgba(217, 70, 239, 0.95), rgba(168, 85, 247, 0.95));
+      background: linear-gradient(180deg, rgba(95, 168, 255, 0.95), rgba(63, 142, 252, 0.95));
       border-color: rgba(255, 255, 255, 0.16);
-      box-shadow: 0 16px 34px rgba(168, 85, 247, 0.25);
+      box-shadow: 0 16px 34px rgba(63, 142, 252, 0.25);
     }
 
     .ghost-btn, .danger-btn, .upload-label { border-radius: 16px; padding: 12px 14px; }
@@ -197,8 +197,8 @@
     }
 
     .field:focus, .select:focus {
-      border-color: rgba(217, 70, 239, 0.55);
-      box-shadow: 0 0 0 4px rgba(217, 70, 239, 0.08);
+      border-color: rgba(95, 168, 255, 0.55);
+      box-shadow: 0 0 0 4px rgba(95, 168, 255, 0.08);
     }
 
     .inline-field { width: 160px; }
@@ -215,7 +215,7 @@
       color: var(--muted);
     }
 
-    input[type="checkbox"] { width: 16px; height: 16px; accent-color: #d946ef; cursor: pointer; }
+    input[type="checkbox"] { width: 16px; height: 16px; accent-color: #5fa8ff; cursor: pointer; }
 
     .table-wrap {
       overflow: auto;
@@ -323,11 +323,10 @@
     <section class="hero">
       <div class="hero-grid">
         <div class="hero-copy">
-          <div class="badge">Baller Budget • GitHub Pages Build</div>
-          <h1>Baller Budget, rebuilt as a clean Safari friendly webpage</h1>
+          <div class="badge">Personal Budget Planner</div>
+          <h1>BudgetFlow</h1>
           <p>
-            This version keeps the same spreadsheet style workflow, but as a clean starter app for anybody to use on GitHub Pages.
-            It keeps the core system, Bills, Schedule, Budget Tracker, Other Spending, and Deposits, with local save, backup export, and import.
+            A clean budgeting workspace for tracking recurring bills, pay periods, spending, deposits, and cash flow in one place.
           </p>
         </div>
         <div class="hero-actions">
@@ -411,7 +410,7 @@
       settings: { openingBalance: 0, scheduleMonthsForward: 12 },
       bills: [],
       payPeriods: [
-        { id: 'period-1', payDate: getTodayISO(), income: 0, bankBalance: '', reconciled: false }
+        { id: 'period-1', payDate: getTodayISO(), income: 0, bankBalance: '', reconciled: false, startingBalanceOverride: '' }
       ],
       spending: [],
       deposits: [],
@@ -567,7 +566,9 @@
         const periodSpending = spending.filter(i => i.charged && i.date >= start && i.date <= end).reduce((s, i) => s + numberOrZero(i.amount), 0);
         const periodDeposits = deposits.filter(i => i.date >= start && i.date <= end).reduce((s, i) => s + numberOrZero(i.amount), 0);
         const totalOut = scheduledBills + periodSpending;
-        const endingBalance = runningBalance + numberOrZero(period.income) + periodDeposits - totalOut;
+        const manualStart = period.startingBalanceOverride === '' || period.startingBalanceOverride == null ? null : numberOrZero(period.startingBalanceOverride);
+        const actualStartingBalance = manualStart == null ? runningBalance : manualStart;
+        const endingBalance = actualStartingBalance + numberOrZero(period.income) + periodDeposits - totalOut;
         const variance = period.bankBalance === '' ? '' : numberOrZero(period.bankBalance) - endingBalance;
         const result = {
           id: period.id,
@@ -577,7 +578,8 @@
           reconciled: period.reconciled,
           windowStart: start,
           windowEnd: end,
-          startingBalance: runningBalance,
+          startingBalance: actualStartingBalance,
+          startingBalanceOverride: period.startingBalanceOverride,
           deposits: periodDeposits,
           billsScheduled: scheduledBills,
           billsPaid: billsPaid,
@@ -774,7 +776,7 @@
           return '<tr>' +
             '<td><input class="field pay-date" data-id="' + row.id + '" type="date" value="' + row.payDate + '" /></td>' +
             '<td>' + formatCompactDate(row.windowStart) + ' to ' + formatCompactDate(row.windowEnd) + '</td>' +
-            '<td>' + formatMoney(row.startingBalance) + '</td>' +
+            '<td><input class="field pay-starting-balance" data-id="' + row.id + '" type="number" step="0.01" value="' + escapeHtml(row.startingBalanceOverride === '' || row.startingBalanceOverride == null ? '' : row.startingBalanceOverride) + '" placeholder="' + row.startingBalance.toFixed(2) + '" /></td>' +
             '<td><input class="field pay-income" data-id="' + row.id + '" type="number" step="0.01" value="' + row.income + '" /></td>' +
             '<td>' + formatMoney(row.deposits) + '</td>' +
             '<td>' + formatMoney(row.billsScheduled) + '</td>' +
@@ -798,13 +800,14 @@
           const last = sorted[sorted.length - 1];
           const nextDate = last ? toISODate(addDays(parseISODate(last.payDate), 14)) : getTodayISO();
           const lastIncome = last ? numberOrZero(last.income) : 0;
-          copy.payPeriods.push({ id: makeId('period'), payDate: nextDate, income: lastIncome, bankBalance: '', reconciled: false });
+          copy.payPeriods.push({ id: makeId('period'), payDate: nextDate, income: lastIncome, bankBalance: '', reconciled: false, startingBalanceOverride: '' });
           return copy;
         });
       });
 
       document.querySelectorAll('.pay-date').forEach(el => el.addEventListener('change', e => updatePayPeriodField(e.target.dataset.id, 'payDate', e.target.value)));
       document.querySelectorAll('.pay-income').forEach(el => el.addEventListener('change', e => updatePayPeriodField(e.target.dataset.id, 'income', numberOrZero(e.target.value))));
+      document.querySelectorAll('.pay-starting-balance').forEach(el => el.addEventListener('change', e => updatePayPeriodField(e.target.dataset.id, 'startingBalanceOverride', e.target.value)));
       document.querySelectorAll('.pay-bank-balance').forEach(el => el.addEventListener('change', e => updatePayPeriodField(e.target.dataset.id, 'bankBalance', e.target.value)));
       document.querySelectorAll('.pay-reconciled').forEach(el => el.addEventListener('change', e => updatePayPeriodField(e.target.dataset.id, 'reconciled', e.target.checked)));
     }
