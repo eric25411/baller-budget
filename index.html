@@ -473,11 +473,9 @@
       <div class="hero-grid">
         <div class="hero-copy">
           <div class="badge">Baller Budget • GitHub Pages Build</div>
-          <h1>Baller Budget, rebuilt as a Safari friendly webpage</h1>
+          <h1>Baller Budget, rebuilt as a clean Safari friendly webpage</h1>
           <p>
-            This version is made for the same kind of workflow as your spreadsheet, just cleaner for GitHub Pages.
-            It keeps the same core system, Bills, Schedule, Budget Tracker, Other Spending, and Deposits, with local save,
-            backup export, and import so it behaves more like your past apps.
+            This version keeps the same spreadsheet style workflow, but as a clean starter app for anybody to use on GitHub Pages. It keeps the core system, Bills, Schedule, Budget Tracker, Other Spending, and Deposits, with local save, backup export, and import.
           </p>
         </div>
         <div class="hero-actions">
@@ -636,36 +634,9 @@
     }
 
     const seedBills = [
-      { id: 'chatgpt', name: 'OpenAI ChatGPT (ACH PWP)', defaultAmount: 21.28, frequency: 'monthly', dueDay: 1, active: true, notes: '' },
-      { id: 'tmobile', name: 'T-Mobile', defaultAmount: 123, frequency: 'monthly', dueDay: 2, active: true, notes: 'Often paid early' },
-      { id: 'peacock', name: 'Peacock', defaultAmount: 6.48, frequency: 'monthly', dueDay: 4, active: true, notes: '' },
-      { id: 'texell', name: 'Texell CU Loan (12-month)', defaultAmount: 114.46, frequency: 'monthly', dueDay: 6, active: true, notes: 'Typical date is the 6th' },
-      { id: 'youtube-tv', name: 'YouTube TV', defaultAmount: 100.65, frequency: 'monthly', dueDay: 7, active: true, notes: '' },
-      { id: 'icloud', name: 'iCloud+ 200GB (Apple)', defaultAmount: 2.99, frequency: 'monthly', dueDay: 8, active: true, notes: '' },
-      { id: 'prime', name: 'Amazon Prime', defaultAmount: 7.49, frequency: 'monthly', dueDay: 8, active: true, notes: '' },
-      { id: 'prime-adfree', name: 'Prime Video Ad-Free', defaultAmount: 2.99, frequency: 'monthly', dueDay: 8, active: true, notes: '' },
-      { id: 'hbo-max', name: 'HBO Max', defaultAmount: 24.54, frequency: 'monthly', dueDay: 9, active: true, notes: '' },
-      { id: 'paramount', name: 'Paramount Plus', defaultAmount: 1.07, frequency: 'monthly', dueDay: 11, active: true, notes: '' },
-      { id: 'spotify', name: 'Spotify', defaultAmount: 12.98, frequency: 'monthly', dueDay: 13, active: true, notes: '' },
-      { id: 'galpalkal', name: 'Twitch – Galpalkal', defaultAmount: 6.48, frequency: 'monthly', dueDay: 13, active: true, notes: '' },
-      { id: 'steve-suptic', name: 'Twitch – Steve Suptic', defaultAmount: 35.94, frequency: 'semiannual', dueDay: 13, dueMonths: [3, 9], active: true, notes: 'Runs in March and September' },
-      { id: 'nytimes', name: 'NYTimes', defaultAmount: 1.6, frequency: 'monthly', dueDay: 13, active: true, notes: '' },
-      { id: 'att-fiber', name: 'AT&T Fiber', defaultAmount: 72.67, frequency: 'monthly', dueDay: 15, active: true, notes: '' },
-      { id: 'belton-utilities', name: 'City of Belton Utilities', defaultAmount: 85, frequency: 'monthly', dueDay: 15, active: true, notes: 'Edit when the bill changes' },
-      { id: 'videoshop', name: 'Videoshop Pro (Apple)', defaultAmount: 3.99, frequency: 'monthly', dueDay: 16, active: true, notes: '' },
-      { id: 'ring', name: 'Ring', defaultAmount: 10.81, frequency: 'monthly', dueDay: 16, active: true, notes: '' },
-      { id: 'gdrive', name: 'Google Drive Storage (Apple)', defaultAmount: 2.99, frequency: 'monthly', dueDay: 17, active: true, notes: '' },
-      { id: 'druija', name: 'Twitch – Druija', defaultAmount: 6.48, frequency: 'monthly', dueDay: 17, active: true, notes: '' },
-      { id: 'upstart', name: 'Upstart Loan', defaultAmount: 60.14, frequency: 'monthly', dueDay: 17, active: true, notes: '' },
-      { id: 'atmos', name: 'Atmos Energy (Natural Gas)', defaultAmount: 46.66, frequency: 'monthly', dueDay: 18, active: true, notes: 'Edit when the bill changes' },
-      { id: 'netflix', name: 'Netflix', defaultAmount: 17.99, frequency: 'monthly', dueDay: 18, active: false, notes: 'Paused in the workbook, turn back on when needed' },
-      { id: 'nordvpn', name: 'NordVPN', defaultAmount: 14.03, frequency: 'monthly', dueDay: 18, active: true, notes: '' },
-      { id: 'disney-hulu', name: 'Disney+ Hulu Bundle (Apple)', defaultAmount: 19.99, frequency: 'monthly', dueDay: 19, active: true, notes: '' },
-      { id: 'progressive', name: 'Progressive Auto Insurance', defaultAmount: 69.09, frequency: 'monthly', dueDay: 20, active: true, notes: '' },
-      { id: 'tello', name: 'Tello Mobile', defaultAmount: 6.31, frequency: 'monthly', dueDay: 21, active: true, notes: '' },
-      { id: 'youtube-premium', name: 'YouTube Premium', defaultAmount: 15.14, frequency: 'monthly', dueDay: 27, active: true, notes: '' },
-      { id: 'just-energy', name: 'Just Energy (Electricity)', defaultAmount: 64.51, frequency: 'monthly', dueDay: 29, active: true, notes: 'Edit when the bill changes' },
-      { id: 'oppfi', name: 'OppFi (OppLoans) Payment', defaultAmount: 100.79, frequency: 'biweekly', anchorDate: '2026-03-06', active: true, notes: 'Every 14 days' },
+      { id: 'bill-rent', name: 'Rent', defaultAmount: 0, frequency: 'monthly', dueDay: 1, active: true, notes: 'Example bill, edit or remove' },
+      { id: 'bill-phone', name: 'Phone Bill', defaultAmount: 0, frequency: 'monthly', dueDay: 10, active: true, notes: 'Example bill, edit or remove' },
+      { id: 'bill-sub', name: 'Streaming Subscription', defaultAmount: 0, frequency: 'monthly', dueDay: 15, active: false, notes: 'Turn on if needed' },
     ];
 
     function buildSeedPayPeriods() {
@@ -680,24 +651,9 @@
       }));
     }
 
-    const seedSpending = [
-      { id: makeId('sp'), date: '2026-03-05', company: 'Steve Gift Sub', amount: 6.48, charged: true, comments: '' },
-      { id: makeId('sp'), date: '2026-03-05', company: 'Earning', amount: 106.99, charged: true, comments: '' },
-      { id: makeId('sp'), date: '2026-03-07', company: 'Zip Payments', amount: 53.28, charged: true, comments: '' },
-      { id: makeId('sp'), date: '2026-03-09', company: 'CALM donation', amount: 17.06, charged: true, comments: '' },
-      { id: makeId('sp'), date: '2026-03-13', company: 'Amazon purchase', amount: 32.77, charged: true, comments: '' },
-      { id: makeId('sp'), date: '2026-03-18', company: 'HEB groceries Favor', amount: 36.41, charged: true, comments: '' },
-      { id: makeId('sp'), date: '2026-03-19', company: 'PlayStation', amount: 10.81, charged: true, comments: '' },
-      { id: makeId('sp'), date: '2026-03-19', company: 'Amazon', amount: 48.13, charged: true, comments: '' },
-      { id: makeId('sp'), date: '2026-03-21', company: 'HEB car wash', amount: 11.99, charged: true, comments: '' },
-      { id: makeId('sp'), date: '2026-03-22', company: '7 Brew Coffee', amount: 7.41, charged: true, comments: '' },
-      { id: makeId('sp'), date: '2026-03-25', company: 'Property Tax payment', amount: 606, charged: true, comments: '' },
-      { id: makeId('sp'), date: '2026-03-28', company: 'ATM withdrawal', amount: 55, charged: true, comments: '' },
-    ];
+    const seedSpending = [];
 
-    const seedDeposits = [
-      { id: makeId('dep'), date: '2026-04-08', amount: 60, comments: 'From Dad for iPhone' },
-    ];
+    const seedDeposits = [];
 
     const defaultData = {
       settings: {
@@ -1326,49 +1282,110 @@
 
     function renderSpending() {
       const rows = [...(state.spending || [])].sort((a, b) => sortByDate(a.date, b.date));
+      const payPeriods = [...(state.payPeriods || [])].sort((a, b) => sortByDate(a.payDate, b.payDate));
+
+      const groups = payPeriods.map((period) => {
+        const start = period.payDate;
+        const end = toISODate(addDays(parseISODate(period.payDate), 13));
+        const items = rows.filter((item) => item.date >= start && item.date <= end);
+        const total = items.reduce((sum, item) => item.charged ? sum + numberOrZero(item.amount) : sum, 0);
+        return { ...period, windowStart: start, windowEnd: end, items, total };
+      });
+
+      const outsideRange = rows.filter((item) => !getPayPeriodForDate(item.date, payPeriods));
+
       const html = `
         <div class="panel">
           <div class="panel-head">
             <div>
               <h2>Other Spending</h2>
-              <p>Tracks the extra stuff outside the regular bill schedule.</p>
+              <p>Spending is grouped by each pay period so it is easier to track what belongs where.</p>
             </div>
             <div class="controls">
               <button class="btn" id="addSpendingBtn">Add spending row</button>
             </div>
           </div>
-          <div class="panel-body">
-            <div class="table-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Pay period</th>
-                    <th>Date</th>
-                    <th>Company</th>
-                    <th>Amount</th>
-                    <th>Charged?</th>
-                    <th>Comments</th>
-                    <th></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  ${rows.map((item) => {
-                    const period = getPayPeriodForDate(item.date, state.payPeriods || []);
-                    return `
-                      <tr>
-                        <td>${period ? formatCompactDate(period.payDate) : 'Outside range'}</td>
-                        <td><input class="field spend-date" data-id="${item.id}" type="date" value="${item.date}" /></td>
-                        <td><input class="field spend-company" data-id="${item.id}" value="${escapeHtml(item.company)}" /></td>
-                        <td><input class="field spend-amount" data-id="${item.id}" type="number" step="0.01" value="${item.amount}" /></td>
-                        <td><input class="spend-charged" data-id="${item.id}" type="checkbox" ${item.charged ? 'checked' : ''} /></td>
-                        <td><input class="field spend-comments" data-id="${item.id}" value="${escapeHtml(item.comments || '')}" /></td>
-                        <td><button class="danger-btn delete-spend" data-id="${item.id}">Remove</button></td>
-                      </tr>
-                    `;
-                  }).join('')}
-                </tbody>
-              </table>
-            </div>
+          <div class="panel-body stack">
+            ${groups.map((group) => `
+              <div class="panel" style="margin-bottom: 0; background: rgba(2, 6, 23, 0.42); box-shadow: none;">
+                <div class="panel-head">
+                  <div>
+                    <h3>${formatCompactDate(group.payDate)} pay period</h3>
+                    <p>${formatCompactDate(group.windowStart)} to ${formatCompactDate(group.windowEnd)}</p>
+                  </div>
+                  <div class="muted">Tracked spending: ${formatMoney(group.total)}</div>
+                </div>
+                <div class="panel-body">
+                  ${group.items.length ? `
+                    <div class="table-wrap">
+                      <table>
+                        <thead>
+                          <tr>
+                            <th>Date</th>
+                            <th>Company</th>
+                            <th>Amount</th>
+                            <th>Charged?</th>
+                            <th>Comments</th>
+                            <th></th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          ${group.items.map((item) => `
+                            <tr>
+                              <td><input class="field spend-date" data-id="${item.id}" type="date" value="${item.date}" /></td>
+                              <td><input class="field spend-company" data-id="${item.id}" value="${escapeHtml(item.company)}" /></td>
+                              <td><input class="field spend-amount" data-id="${item.id}" type="number" step="0.01" value="${item.amount}" /></td>
+                              <td><input class="spend-charged" data-id="${item.id}" type="checkbox" ${item.charged ? 'checked' : ''} /></td>
+                              <td><input class="field spend-comments" data-id="${item.id}" value="${escapeHtml(item.comments || '')}" /></td>
+                              <td><button class="danger-btn delete-spend" data-id="${item.id}">Remove</button></td>
+                            </tr>
+                          `).join('')}
+                        </tbody>
+                      </table>
+                    </div>
+                  ` : `<div class="note-box">No extra spending added for this pay period yet.</div>`}
+                </div>
+              </div>
+            `).join('')}
+
+            ${outsideRange.length ? `
+              <div class="panel" style="margin-bottom: 0; background: rgba(2, 6, 23, 0.42); box-shadow: none;">
+                <div class="panel-head">
+                  <div>
+                    <h3>Outside current pay periods</h3>
+                    <p>These entries do not currently land inside one of the pay period windows.</p>
+                  </div>
+                </div>
+                <div class="panel-body">
+                  <div class="table-wrap">
+                    <table>
+                      <thead>
+                        <tr>
+                          <th>Date</th>
+                          <th>Company</th>
+                          <th>Amount</th>
+                          <th>Charged?</th>
+                          <th>Comments</th>
+                          <th></th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        ${outsideRange.map((item) => `
+                          <tr>
+                            <td><input class="field spend-date" data-id="${item.id}" type="date" value="${item.date}" /></td>
+                            <td><input class="field spend-company" data-id="${item.id}" value="${escapeHtml(item.company)}" /></td>
+                            <td><input class="field spend-amount" data-id="${item.id}" type="number" step="0.01" value="${item.amount}" /></td>
+                            <td><input class="spend-charged" data-id="${item.id}" type="checkbox" ${item.charged ? 'checked' : ''} /></td>
+                            <td><input class="field spend-comments" data-id="${item.id}" value="${escapeHtml(item.comments || '')}" /></td>
+                            <td><button class="danger-btn delete-spend" data-id="${item.id}">Remove</button></td>
+                          </tr>
+                        `).join('')}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            ` : ''}
           </div>
         </div>
       `;
