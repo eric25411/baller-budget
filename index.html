@@ -330,6 +330,87 @@
       letter-spacing: -0.02em;
     }
 
+    .budget-stack {
+      display: grid;
+      gap: 12px;
+    }
+
+    .budget-period {
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      background: rgba(2, 6, 23, 0.52);
+      border-radius: 18px;
+      overflow: hidden;
+    }
+
+    .budget-period summary {
+      list-style: none;
+      cursor: pointer;
+    }
+
+    .budget-period summary::-webkit-details-marker {
+      display: none;
+    }
+
+    .budget-summary {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: center;
+      padding: 14px 16px;
+    }
+
+    .budget-summary-main {
+      display: grid;
+      gap: 4px;
+    }
+
+    .budget-summary-main h3 {
+      font-size: 16px;
+    }
+
+    .budget-kpis {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+      justify-content: flex-end;
+    }
+
+    .budget-kpi {
+      border: 1px solid rgba(255, 255, 255, 0.07);
+      background: rgba(255, 255, 255, 0.03);
+      border-radius: 12px;
+      padding: 8px 10px;
+      min-width: 110px;
+    }
+
+    .budget-kpi .label {
+      color: var(--muted);
+      font-size: 11px;
+      margin-bottom: 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .budget-kpi .value {
+      font-size: 15px;
+      font-weight: 700;
+    }
+
+    .budget-detail {
+      padding: 0 16px 16px;
+      border-top: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
+    .budget-section-label {
+      color: var(--muted);
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin: 6px 0 10px;
+    }
+
     #importFile { display: none; }
 
     @media (max-width: 1180px) {
@@ -798,41 +879,63 @@
 
     function renderBudget() {
       const rows = getBudgetRows();
-      const summaryCards = rows.length ? rows.map(function(row) {
-        return '<div class="period-card">' +
-          '<div class="period-head"><div><h3>' + formatCompactDate(row.payDate) + ' pay period</h3><p class="muted">' + formatCompactDate(row.windowStart) + ' to ' + formatCompactDate(row.windowEnd) + '</p></div><div class="muted">Projected leftover: ' + formatMoney(row.endingBalance) + '</div></div>' +
-          '<div class="summary-grid">' +
-            '<div class="summary-tile"><div class="label">Income</div><div class="value">' + formatMoney(row.income) + '</div></div>' +
-            '<div class="summary-tile"><div class="label">Bills</div><div class="value">' + formatMoney(row.billsScheduled) + '</div></div>' +
-            '<div class="summary-tile"><div class="label">Spending</div><div class="value">' + formatMoney(row.otherSpending) + '</div></div>' +
-            '<div class="summary-tile"><div class="label">Deposits</div><div class="value">' + formatMoney(row.deposits) + '</div></div>' +
-          '</div>' +
-        '</div>';
-      }).join('') : '<div class="note-box">No pay periods yet.</div>';
+      const today = getTodayISO();
+      const currentRow = rows.find(row => today >= row.windowStart && today <= row.windowEnd) || rows[0] || null;
+      const pastRows = rows.filter(row => currentRow && row.id !== currentRow.id && row.windowEnd < today);
+      const upcomingRows = rows.filter(row => currentRow ? row.id !== currentRow.id && row.windowStart > today : true);
+
+      function renderBudgetPeriod(row, options) {
+        const heading = options && options.heading ? '<div class="budget-section-label">' + options.heading + '</div>' : '';
+        const openAttr = options && options.open ? ' open' : '';
+        return heading +
+          '<details class="budget-period"' + openAttr + '>' +
+            '<summary class="budget-summary">' +
+              '<div class="budget-summary-main">' +
+                '<h3>' + formatCompactDate(row.payDate) + ' pay period</h3>' +
+                '<p class="muted">' + formatCompactDate(row.windowStart) + ' to ' + formatCompactDate(row.windowEnd) + '</p>' +
+              '</div>' +
+              '<div class="budget-kpis">' +
+                '<div class="budget-kpi"><div class="label">Income</div><div class="value">' + formatMoney(row.income) + '</div></div>' +
+                '<div class="budget-kpi"><div class="label">Bills</div><div class="value">' + formatMoney(row.billsScheduled) + '</div></div>' +
+                '<div class="budget-kpi"><div class="label">Spending</div><div class="value">' + formatMoney(row.otherSpending) + '</div></div>' +
+                '<div class="budget-kpi"><div class="label">Leftover</div><div class="value">' + formatMoney(row.endingBalance) + '</div></div>' +
+              '</div>' +
+            '</summary>' +
+            '<div class="budget-detail">' +
+              '<div class="table-wrap"><table><thead><tr><th>Pay date</th><th>Window</th><th>Starting balance</th><th>Income</th><th>Deposits</th><th>Bills scheduled</th><th>Bills paid</th><th>Other spending</th><th>Total out</th><th>Ending balance</th><th>Rollover</th><th>Bank balance</th><th>Variance</th><th>Reconciled?</th></tr></thead><tbody>' +
+                '<tr>' +
+                  '<td><input class="field pay-date" data-id="' + row.id + '" type="date" value="' + row.payDate + '" /></td>' +
+                  '<td>' + formatCompactDate(row.windowStart) + ' to ' + formatCompactDate(row.windowEnd) + '</td>' +
+                  '<td><input class="field pay-starting-balance" data-id="' + row.id + '" type="number" step="0.01" value="' + escapeHtml(row.startingBalanceOverride === '' || row.startingBalanceOverride == null ? '' : row.startingBalanceOverride) + '" placeholder="' + row.startingBalance.toFixed(2) + '" /></td>' +
+                  '<td><input class="field pay-income" data-id="' + row.id + '" type="number" step="0.01" value="' + row.income + '" /></td>' +
+                  '<td>' + formatMoney(row.deposits) + '</td>' +
+                  '<td>' + formatMoney(row.billsScheduled) + '</td>' +
+                  '<td>' + formatMoney(row.billsPaid) + '</td>' +
+                  '<td>' + formatMoney(row.otherSpending) + '</td>' +
+                  '<td>' + formatMoney(row.totalOut) + '</td>' +
+                  '<td>' + formatMoney(row.endingBalance) + '</td>' +
+                  '<td>' + formatMoney(row.rollover) + '</td>' +
+                  '<td><input class="field pay-bank-balance" data-id="' + row.id + '" type="number" step="0.01" value="' + escapeHtml(row.bankBalance) + '" /></td>' +
+                  '<td>' + (row.variance === '' ? '—' : formatMoney(row.variance)) + '</td>' +
+                  '<td><input class="pay-reconciled" data-id="' + row.id + '" type="checkbox" ' + (row.reconciled ? 'checked' : '') + ' /></td>' +
+                '</tr>' +
+              '</tbody></table></div>' +
+            '</div>' +
+          '</details>';
+      }
+
+      const currentMarkup = currentRow ? renderBudgetPeriod(currentRow, { open: true, heading: 'Current Period' }) : '<div class="note-box">No pay periods yet.</div>';
+      const upcomingMarkup = upcomingRows.length ? upcomingRows.map(row => renderBudgetPeriod(row, { open: false })).join('') : '<div class="note-box">No upcoming periods yet.</div>';
+      const pastMarkup = pastRows.length ? pastRows.slice().reverse().map(row => renderBudgetPeriod(row, { open: false })).join('') : '<div class="note-box">No past periods yet.</div>';
 
       document.getElementById('tab-budget').innerHTML =
-        '<div class="panel"><div class="panel-head"><div><h2>Budget Tracker</h2><p>Biweekly windows with the same main math as your workbook.</p></div><div class="controls"><button class="btn" id="addPayPeriodBtn">Start New Period</button></div></div><div class="panel-body">' +
-          '<div class="period-list" style="margin-bottom:16px;">' + summaryCards + '</div>' +
-          '<div class="table-wrap"><table><thead><tr><th>Pay date</th><th>Window</th><th>Starting balance</th><th>Income</th><th>Deposits</th><th>Bills scheduled</th><th>Bills paid</th><th>Other spending</th><th>Total out</th><th>Ending balance</th><th>Rollover</th><th>Bank balance</th><th>Variance</th><th>Reconciled?</th></tr></thead><tbody>' +
-          rows.map(function(row) {
-            return '<tr>' +
-              '<td><input class="field pay-date" data-id="' + row.id + '" type="date" value="' + row.payDate + '" /></td>' +
-              '<td>' + formatCompactDate(row.windowStart) + ' to ' + formatCompactDate(row.windowEnd) + '</td>' +
-              '<td><input class="field pay-starting-balance" data-id="' + row.id + '" type="number" step="0.01" value="' + escapeHtml(row.startingBalanceOverride === '' || row.startingBalanceOverride == null ? '' : row.startingBalanceOverride) + '" placeholder="' + row.startingBalance.toFixed(2) + '" /></td>' +
-              '<td><input class="field pay-income" data-id="' + row.id + '" type="number" step="0.01" value="' + row.income + '" /></td>' +
-              '<td>' + formatMoney(row.deposits) + '</td>' +
-              '<td>' + formatMoney(row.billsScheduled) + '</td>' +
-              '<td>' + formatMoney(row.billsPaid) + '</td>' +
-              '<td>' + formatMoney(row.otherSpending) + '</td>' +
-              '<td>' + formatMoney(row.totalOut) + '</td>' +
-              '<td>' + formatMoney(row.endingBalance) + '</td>' +
-              '<td>' + formatMoney(row.rollover) + '</td>' +
-              '<td><input class="field pay-bank-balance" data-id="' + row.id + '" type="number" step="0.01" value="' + escapeHtml(row.bankBalance) + '" /></td>' +
-              '<td>' + (row.variance === '' ? '—' : formatMoney(row.variance)) + '</td>' +
-              '<td><input class="pay-reconciled" data-id="' + row.id + '" type="checkbox" ' + (row.reconciled ? 'checked' : '') + ' /></td>' +
-            '</tr>';
-          }).join('') +
-          '</tbody></table></div></div></div>';
+        '<div class="panel"><div class="panel-head"><div><h2>Budget Tracker</h2><p>Current period stays open by default, while past and upcoming periods stay compact until you need them.</p></div><div class="controls"><button class="btn" id="addPayPeriodBtn">Start New Period</button></div></div><div class="panel-body">' +
+          '<div class="budget-stack">' +
+            currentMarkup +
+            '<div class="budget-section-label">Upcoming Periods</div>' + upcomingMarkup +
+            '<div class="budget-section-label">Past Periods</div>' + pastMarkup +
+          '</div>' +
+        '</div></div>';
 
       const add = document.getElementById('addPayPeriodBtn');
       if (add) add.addEventListener('click', function() {
