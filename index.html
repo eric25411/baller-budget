@@ -302,16 +302,44 @@
 
     .period-meta { display: flex; flex-wrap: wrap; gap: 16px; color: var(--muted); font-size: 14px; }
 
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .summary-tile {
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      background: rgba(2, 6, 23, 0.5);
+      border-radius: 16px;
+      padding: 12px;
+    }
+
+    .summary-tile .label {
+      color: var(--muted);
+      font-size: 12px;
+      margin-bottom: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    .summary-tile .value {
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+
     #importFile { display: none; }
 
     @media (max-width: 1180px) {
-      .stats, .grid-two { grid-template-columns: 1fr 1fr; }
+      .stats, .grid-two, .summary-grid { grid-template-columns: 1fr 1fr; }
     }
 
     @media (max-width: 900px) {
       body { padding: 14px; }
       .hero, .panel-body, .panel-head { padding-left: 16px; padding-right: 16px; }
-      .stats, .grid-two { grid-template-columns: 1fr; }
+      .stats, .grid-two, .summary-grid { grid-template-columns: 1fr; }
       .next-item { grid-template-columns: 1fr; }
       .hero-actions > *, .controls > * { flex: 1 1 100%; }
       .inline-field { width: 100%; }
@@ -770,27 +798,41 @@
 
     function renderBudget() {
       const rows = getBudgetRows();
+      const summaryCards = rows.length ? rows.map(function(row) {
+        return '<div class="period-card">' +
+          '<div class="period-head"><div><h3>' + formatCompactDate(row.payDate) + ' pay period</h3><p class="muted">' + formatCompactDate(row.windowStart) + ' to ' + formatCompactDate(row.windowEnd) + '</p></div><div class="muted">Projected leftover: ' + formatMoney(row.endingBalance) + '</div></div>' +
+          '<div class="summary-grid">' +
+            '<div class="summary-tile"><div class="label">Income</div><div class="value">' + formatMoney(row.income) + '</div></div>' +
+            '<div class="summary-tile"><div class="label">Bills</div><div class="value">' + formatMoney(row.billsScheduled) + '</div></div>' +
+            '<div class="summary-tile"><div class="label">Spending</div><div class="value">' + formatMoney(row.otherSpending) + '</div></div>' +
+            '<div class="summary-tile"><div class="label">Deposits</div><div class="value">' + formatMoney(row.deposits) + '</div></div>' +
+          '</div>' +
+        '</div>';
+      }).join('') : '<div class="note-box">No pay periods yet.</div>';
+
       document.getElementById('tab-budget').innerHTML =
-        '<div class="panel"><div class="panel-head"><div><h2>Budget Tracker</h2><p>Biweekly windows with the same main math as your workbook.</p></div><div class="controls"><button class="btn" id="addPayPeriodBtn">Start New Period</button></div></div><div class="panel-body"><div class="table-wrap"><table><thead><tr><th>Pay date</th><th>Window</th><th>Starting balance</th><th>Income</th><th>Deposits</th><th>Bills scheduled</th><th>Bills paid</th><th>Other spending</th><th>Total out</th><th>Ending balance</th><th>Rollover</th><th>Bank balance</th><th>Variance</th><th>Reconciled?</th></tr></thead><tbody>' +
-        rows.map(function(row) {
-          return '<tr>' +
-            '<td><input class="field pay-date" data-id="' + row.id + '" type="date" value="' + row.payDate + '" /></td>' +
-            '<td>' + formatCompactDate(row.windowStart) + ' to ' + formatCompactDate(row.windowEnd) + '</td>' +
-            '<td><input class="field pay-starting-balance" data-id="' + row.id + '" type="number" step="0.01" value="' + escapeHtml(row.startingBalanceOverride === '' || row.startingBalanceOverride == null ? '' : row.startingBalanceOverride) + '" placeholder="' + row.startingBalance.toFixed(2) + '" /></td>' +
-            '<td><input class="field pay-income" data-id="' + row.id + '" type="number" step="0.01" value="' + row.income + '" /></td>' +
-            '<td>' + formatMoney(row.deposits) + '</td>' +
-            '<td>' + formatMoney(row.billsScheduled) + '</td>' +
-            '<td>' + formatMoney(row.billsPaid) + '</td>' +
-            '<td>' + formatMoney(row.otherSpending) + '</td>' +
-            '<td>' + formatMoney(row.totalOut) + '</td>' +
-            '<td>' + formatMoney(row.endingBalance) + '</td>' +
-            '<td>' + formatMoney(row.rollover) + '</td>' +
-            '<td><input class="field pay-bank-balance" data-id="' + row.id + '" type="number" step="0.01" value="' + escapeHtml(row.bankBalance) + '" /></td>' +
-            '<td>' + (row.variance === '' ? '—' : formatMoney(row.variance)) + '</td>' +
-            '<td><input class="pay-reconciled" data-id="' + row.id + '" type="checkbox" ' + (row.reconciled ? 'checked' : '') + ' /></td>' +
-          '</tr>';
-        }).join('') +
-        '</tbody></table></div></div></div>';
+        '<div class="panel"><div class="panel-head"><div><h2>Budget Tracker</h2><p>Biweekly windows with the same main math as your workbook.</p></div><div class="controls"><button class="btn" id="addPayPeriodBtn">Start New Period</button></div></div><div class="panel-body">' +
+          '<div class="period-list" style="margin-bottom:16px;">' + summaryCards + '</div>' +
+          '<div class="table-wrap"><table><thead><tr><th>Pay date</th><th>Window</th><th>Starting balance</th><th>Income</th><th>Deposits</th><th>Bills scheduled</th><th>Bills paid</th><th>Other spending</th><th>Total out</th><th>Ending balance</th><th>Rollover</th><th>Bank balance</th><th>Variance</th><th>Reconciled?</th></tr></thead><tbody>' +
+          rows.map(function(row) {
+            return '<tr>' +
+              '<td><input class="field pay-date" data-id="' + row.id + '" type="date" value="' + row.payDate + '" /></td>' +
+              '<td>' + formatCompactDate(row.windowStart) + ' to ' + formatCompactDate(row.windowEnd) + '</td>' +
+              '<td><input class="field pay-starting-balance" data-id="' + row.id + '" type="number" step="0.01" value="' + escapeHtml(row.startingBalanceOverride === '' || row.startingBalanceOverride == null ? '' : row.startingBalanceOverride) + '" placeholder="' + row.startingBalance.toFixed(2) + '" /></td>' +
+              '<td><input class="field pay-income" data-id="' + row.id + '" type="number" step="0.01" value="' + row.income + '" /></td>' +
+              '<td>' + formatMoney(row.deposits) + '</td>' +
+              '<td>' + formatMoney(row.billsScheduled) + '</td>' +
+              '<td>' + formatMoney(row.billsPaid) + '</td>' +
+              '<td>' + formatMoney(row.otherSpending) + '</td>' +
+              '<td>' + formatMoney(row.totalOut) + '</td>' +
+              '<td>' + formatMoney(row.endingBalance) + '</td>' +
+              '<td>' + formatMoney(row.rollover) + '</td>' +
+              '<td><input class="field pay-bank-balance" data-id="' + row.id + '" type="number" step="0.01" value="' + escapeHtml(row.bankBalance) + '" /></td>' +
+              '<td>' + (row.variance === '' ? '—' : formatMoney(row.variance)) + '</td>' +
+              '<td><input class="pay-reconciled" data-id="' + row.id + '" type="checkbox" ' + (row.reconciled ? 'checked' : '') + ' /></td>' +
+            '</tr>';
+          }).join('') +
+          '</tbody></table></div></div></div>';
 
       const add = document.getElementById('addPayPeriodBtn');
       if (add) add.addEventListener('click', function() {
@@ -887,28 +929,58 @@
 
     function renderDeposits() {
       const rows = (state.deposits || []).slice().sort((a, b) => sortByDate(a.date, b.date));
-      document.getElementById('tab-deposits').innerHTML =
-        '<div class="panel"><div class="panel-head"><div><h2>Deposits</h2><p>Extra inflows that land inside your pay periods.</p></div><div class="controls"><button class="btn" id="addDepositBtn">Add deposit row</button></div></div><div class="panel-body"><div class="table-wrap"><table><thead><tr><th>Pay period</th><th>Date</th><th>Amount</th><th>Comments</th><th></th></tr></thead><tbody>' +
-        rows.map(function(item) {
-          const period = getPayPeriodForDate(item.date, state.payPeriods || []);
-          return '<tr>' +
-            '<td>' + (period ? formatCompactDate(period.payDate) : 'Outside range') + '</td>' +
-            '<td><input class="field deposit-date" data-id="' + item.id + '" type="date" value="' + item.date + '" /></td>' +
-            '<td><input class="field deposit-amount" data-id="' + item.id + '" type="number" step="0.01" value="' + item.amount + '" /></td>' +
-            '<td><input class="field deposit-comments" data-id="' + item.id + '" value="' + escapeHtml(item.comments || '') + '" /></td>' +
-            '<td><button class="danger-btn delete-deposit" data-id="' + item.id + '">Remove</button></td>' +
-          '</tr>';
-        }).join('') +
-        '</tbody></table></div></div></div>';
+      const payPeriods = (state.payPeriods || []).slice().sort((a, b) => sortByDate(a.payDate, b.payDate));
+      const groups = payPeriods.map(function(period) {
+        const start = period.payDate;
+        const end = toISODate(addDays(parseISODate(period.payDate), 13));
+        const items = rows.filter(item => item.date >= start && item.date <= end);
+        const total = items.reduce((sum, item) => sum + numberOrZero(item.amount), 0);
+        return { id: period.id, payDate: period.payDate, windowStart: start, windowEnd: end, items: items, total: total };
+      });
+      const outsideRange = rows.filter(item => !getPayPeriodForDate(item.date, payPeriods));
 
-      const add = document.getElementById('addDepositBtn');
-      if (add) add.addEventListener('click', function() {
-        setState(function(currentState) {
-          const copy = clone(currentState);
-          copy.deposits.push({ id: makeId('dep'), date: getTodayISO(), amount: 0, comments: '' });
-          return copy;
+      document.getElementById('tab-deposits').innerHTML =
+        '<div class="panel"><div class="panel-head"><div><h2>Deposits</h2><p>Deposits are grouped by pay period for easier tracking.</p></div></div><div class="panel-body"><div class="period-list">' +
+        groups.map(function(group) {
+          return '<div class="period-card">' +
+            '<div class="period-head"><div><h3>' + formatCompactDate(group.payDate) + ' pay period</h3><p class="muted">' + formatCompactDate(group.windowStart) + ' to ' + formatCompactDate(group.windowEnd) + '</p></div><div class="controls"><div class="muted">Tracked deposits: ' + formatMoney(group.total) + '</div><button class="mini-btn add-deposit-for-period" data-period-id="' + group.id + '">+ Add deposit</button></div></div>' +
+            (group.items.length ?
+              '<div class="table-wrap"><table><thead><tr><th>Date</th><th>Amount</th><th>Comments</th><th></th></tr></thead><tbody>' +
+              group.items.map(function(item) {
+                return '<tr>' +
+                  '<td><input class="field deposit-date" data-id="' + item.id + '" type="date" value="' + item.date + '" /></td>' +
+                  '<td><input class="field deposit-amount" data-id="' + item.id + '" type="number" step="0.01" value="' + item.amount + '" /></td>' +
+                  '<td><input class="field deposit-comments" data-id="' + item.id + '" value="' + escapeHtml(item.comments || '') + '" /></td>' +
+                  '<td><button class="danger-btn delete-deposit" data-id="' + item.id + '">Remove</button></td>' +
+                '</tr>';
+              }).join('') + '</tbody></table></div>'
+            : '<div class="note-box">No deposits added for this pay period yet.</div>') +
+          '</div>';
+        }).join('') +
+        (outsideRange.length ? '<div class="period-card"><div class="period-head"><div><h3>Outside current pay periods</h3><p class="muted">These entries do not currently land inside one of the pay period windows.</p></div></div><div class="table-wrap"><table><thead><tr><th>Date</th><th>Amount</th><th>Comments</th><th></th></tr></thead><tbody>' +
+          outsideRange.map(function(item) {
+            return '<tr>' +
+              '<td><input class="field deposit-date" data-id="' + item.id + '" type="date" value="' + item.date + '" /></td>' +
+              '<td><input class="field deposit-amount" data-id="' + item.id + '" type="number" step="0.01" value="' + item.amount + '" /></td>' +
+              '<td><input class="field deposit-comments" data-id="' + item.id + '" value="' + escapeHtml(item.comments || '') + '" /></td>' +
+              '<td><button class="danger-btn delete-deposit" data-id="' + item.id + '">Remove</button></td>' +
+            '</tr>';
+          }).join('') + '</tbody></table></div></div>' : '') +
+        '</div></div></div>';
+
+      document.querySelectorAll('.add-deposit-for-period').forEach(function(el) {
+        el.addEventListener('click', function(e) {
+          const periodId = e.target.dataset.periodId;
+          const period = (state.payPeriods || []).find(p => p.id === periodId);
+          if (!period) return;
+          setState(function(currentState) {
+            const copy = clone(currentState);
+            copy.deposits.push({ id: makeId('dep'), date: period.payDate, amount: 0, comments: '' });
+            return copy;
+          });
         });
       });
+
       document.querySelectorAll('.deposit-date').forEach(el => el.addEventListener('change', e => updateDepositField(e.target.dataset.id, 'date', e.target.value)));
       document.querySelectorAll('.deposit-amount').forEach(el => el.addEventListener('change', e => updateDepositField(e.target.dataset.id, 'amount', numberOrZero(e.target.value))));
       document.querySelectorAll('.deposit-comments').forEach(el => el.addEventListener('change', e => updateDepositField(e.target.dataset.id, 'comments', e.target.value)));
