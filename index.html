@@ -1,0 +1,1553 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Baller Budget</title>
+  <style>
+    :root {
+      --bg-1: #020617;
+      --bg-2: #0f172a;
+      --panel: rgba(15, 23, 42, 0.82);
+      --panel-2: rgba(30, 41, 59, 0.6);
+      --line: rgba(255, 255, 255, 0.1);
+      --text: #f8fafc;
+      --muted: #94a3b8;
+      --accent: #c026d3;
+      --accent-soft: rgba(192, 38, 211, 0.18);
+      --good: #10b981;
+      --warn: #f59e0b;
+      --bad: #f43f5e;
+      --radius: 24px;
+      --shadow: 0 20px 70px rgba(0, 0, 0, 0.38);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background:
+        radial-gradient(circle at top, rgba(192, 38, 211, 0.22), transparent 28%),
+        linear-gradient(180deg, var(--bg-2), var(--bg-1));
+      color: var(--text);
+      min-height: 100%;
+    }
+
+    body {
+      padding: 20px;
+    }
+
+    .app {
+      max-width: 1480px;
+      margin: 0 auto;
+    }
+
+    .hero {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 30px;
+      padding: 28px;
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      margin-bottom: 18px;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      border-radius: 999px;
+      border: 1px solid rgba(192, 38, 211, 0.26);
+      background: var(--accent-soft);
+      color: #f5d0fe;
+      padding: 7px 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.18em;
+      font-size: 11px;
+      font-weight: 700;
+      margin-bottom: 12px;
+    }
+
+    h1, h2, h3, p {
+      margin: 0;
+    }
+
+    .hero-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 18px;
+      align-items: end;
+      justify-content: space-between;
+    }
+
+    .hero-copy {
+      flex: 1 1 640px;
+    }
+
+    .hero-copy h1 {
+      font-size: clamp(30px, 4vw, 44px);
+      line-height: 1.02;
+      letter-spacing: -0.03em;
+      margin-bottom: 10px;
+    }
+
+    .hero-copy p {
+      color: var(--muted);
+      max-width: 900px;
+      line-height: 1.6;
+      font-size: 15px;
+    }
+
+    .hero-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .tabs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-bottom: 18px;
+    }
+
+    .tab-btn,
+    .btn,
+    .danger-btn,
+    .ghost-btn,
+    .mini-btn {
+      appearance: none;
+      border: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.05);
+      color: var(--text);
+      border-radius: 999px;
+      padding: 11px 15px;
+      font-size: 14px;
+      cursor: pointer;
+      transition: 0.18s ease;
+      font-weight: 600;
+      text-decoration: none;
+    }
+
+    .tab-btn:hover,
+    .btn:hover,
+    .ghost-btn:hover,
+    .mini-btn:hover {
+      background: rgba(255, 255, 255, 0.1);
+    }
+
+    .tab-btn.active,
+    .btn {
+      background: linear-gradient(180deg, rgba(217, 70, 239, 0.95), rgba(168, 85, 247, 0.95));
+      border-color: rgba(255, 255, 255, 0.16);
+      box-shadow: 0 16px 34px rgba(168, 85, 247, 0.25);
+    }
+
+    .ghost-btn {
+      border-radius: 16px;
+      padding: 12px 14px;
+    }
+
+    .danger-btn {
+      border-radius: 16px;
+      padding: 12px 14px;
+      border-color: rgba(244, 63, 94, 0.25);
+      background: rgba(244, 63, 94, 0.12);
+      color: #fecdd3;
+    }
+
+    .danger-btn:hover {
+      background: rgba(244, 63, 94, 0.18);
+    }
+
+    .mini-btn {
+      border-radius: 14px;
+      padding: 9px 12px;
+      font-size: 12px;
+    }
+
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      overflow: hidden;
+      margin-bottom: 18px;
+    }
+
+    .panel-head {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      gap: 14px;
+      align-items: center;
+      padding: 18px 20px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .panel-head p {
+      color: var(--muted);
+      font-size: 14px;
+      margin-top: 5px;
+    }
+
+    .panel-body {
+      padding: 18px 20px 22px;
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 14px;
+      margin-bottom: 18px;
+    }
+
+    .stat {
+      background: rgba(2, 6, 23, 0.58);
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      padding: 16px;
+      min-height: 112px;
+    }
+
+    .stat .label {
+      color: var(--muted);
+      font-size: 13px;
+      margin-bottom: 10px;
+    }
+
+    .stat .value {
+      font-size: 28px;
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      margin-bottom: 4px;
+    }
+
+    .stat .sub {
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    .grid-two {
+      display: grid;
+      grid-template-columns: 1.2fr 0.8fr;
+      gap: 18px;
+      margin-bottom: 18px;
+    }
+
+    .stack {
+      display: grid;
+      gap: 14px;
+    }
+
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .field,
+    .select,
+    .textarea {
+      width: 100%;
+      border-radius: 14px;
+      border: 1px solid var(--line);
+      background: rgba(2, 6, 23, 0.75);
+      color: var(--text);
+      padding: 11px 12px;
+      font-size: 14px;
+      outline: none;
+    }
+
+    .field:focus,
+    .select:focus,
+    .textarea:focus {
+      border-color: rgba(217, 70, 239, 0.55);
+      box-shadow: 0 0 0 4px rgba(217, 70, 239, 0.08);
+    }
+
+    .textarea {
+      resize: vertical;
+      min-height: 86px;
+    }
+
+    .inline-field {
+      width: 130px;
+    }
+
+    .checkbox-wrap {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 10px 12px;
+      font-size: 14px;
+      color: var(--muted);
+    }
+
+    input[type="checkbox"] {
+      width: 16px;
+      height: 16px;
+      accent-color: #d946ef;
+      cursor: pointer;
+    }
+
+    .table-wrap {
+      overflow: auto;
+      border-radius: 18px;
+      border: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 980px;
+      font-size: 14px;
+    }
+
+    th,
+    td {
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+      padding: 12px 12px;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    thead th {
+      color: var(--muted);
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      background: rgba(255, 255, 255, 0.03);
+      position: sticky;
+      top: 0;
+      z-index: 1;
+    }
+
+    tbody tr:hover {
+      background: rgba(255, 255, 255, 0.035);
+    }
+
+    .status {
+      display: inline-flex;
+      align-items: center;
+      border-radius: 999px;
+      padding: 7px 10px;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.01em;
+    }
+
+    .status.paid {
+      background: rgba(16, 185, 129, 0.16);
+      color: #bbf7d0;
+    }
+
+    .status.soon {
+      background: rgba(245, 158, 11, 0.16);
+      color: #fde68a;
+    }
+
+    .status.overdue {
+      background: rgba(244, 63, 94, 0.16);
+      color: #fecdd3;
+    }
+
+    .status.later {
+      background: rgba(148, 163, 184, 0.16);
+      color: #cbd5e1;
+    }
+
+    .muted {
+      color: var(--muted);
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    .tab-panel.hidden {
+      display: none !important;
+    }
+
+    .next-list {
+      display: grid;
+      gap: 10px;
+    }
+
+    .next-item {
+      display: grid;
+      grid-template-columns: 130px 1fr 130px 120px;
+      gap: 12px;
+      align-items: center;
+      padding: 14px 15px;
+      border-radius: 18px;
+      background: rgba(2, 6, 23, 0.52);
+      border: 1px solid var(--line);
+    }
+
+    .note-box {
+      border-radius: 18px;
+      border: 1px solid var(--line);
+      background: rgba(2, 6, 23, 0.45);
+      padding: 15px;
+      color: var(--muted);
+      line-height: 1.6;
+      font-size: 14px;
+    }
+
+    .upload-label {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      border-radius: 16px;
+      border: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.05);
+      padding: 12px 14px;
+      cursor: pointer;
+      font-weight: 600;
+    }
+
+    #importFile {
+      display: none;
+    }
+
+    @media (max-width: 1180px) {
+      .stats,
+      .grid-two {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+
+    @media (max-width: 900px) {
+      body {
+        padding: 14px;
+      }
+
+      .hero,
+      .panel-body,
+      .panel-head {
+        padding-left: 16px;
+        padding-right: 16px;
+      }
+
+      .stats,
+      .grid-two {
+        grid-template-columns: 1fr;
+      }
+
+      .next-item {
+        grid-template-columns: 1fr;
+      }
+
+      .hero-actions,
+      .controls {
+        width: 100%;
+      }
+
+      .hero-actions > *,
+      .controls > * {
+        flex: 1 1 100%;
+      }
+
+      .inline-field {
+        width: 100%;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <section class="hero">
+      <div class="hero-grid">
+        <div class="hero-copy">
+          <div class="badge">Baller Budget • GitHub Pages Build</div>
+          <h1>Baller Budget, rebuilt as a Safari friendly webpage</h1>
+          <p>
+            This version is made for the same kind of workflow as your spreadsheet, just cleaner for GitHub Pages.
+            It keeps the same core system, Bills, Schedule, Budget Tracker, Other Spending, and Deposits, with local save,
+            backup export, and import so it behaves more like your past apps.
+          </p>
+        </div>
+        <div class="hero-actions">
+          <button class="btn" id="exportBtn">Download backup</button>
+          <label class="upload-label" for="importFile">Import backup</label>
+          <input id="importFile" type="file" accept="application/json" />
+          <button class="ghost-btn" id="seedBtn">Reset to seeded data</button>
+        </div>
+      </div>
+    </section>
+
+    <nav class="tabs" id="tabs"></nav>
+
+    <section class="tab-panel" id="tab-dashboard"></section>
+    <section class="tab-panel hidden" id="tab-bills"></section>
+    <section class="tab-panel hidden" id="tab-schedule"></section>
+    <section class="tab-panel hidden" id="tab-budget"></section>
+    <section class="tab-panel hidden" id="tab-spending"></section>
+    <section class="tab-panel hidden" id="tab-deposits"></section>
+  </div>
+
+  <script>
+    const STORAGE_KEY = 'baller-budget-github-pages-v1';
+
+    const tabs = [
+      { id: 'dashboard', label: 'Dashboard' },
+      { id: 'bills', label: 'Bills' },
+      { id: 'schedule', label: 'Schedule' },
+      { id: 'budget', label: 'Budget Tracker' },
+      { id: 'spending', label: 'Other Spending' },
+      { id: 'deposits', label: 'Deposits' },
+    ];
+
+    function makeId(prefix = 'id') {
+      return `${prefix}-${Math.random().toString(36).slice(2, 8)}-${Date.now().toString(36)}`;
+    }
+
+    function pad(n) {
+      return String(n).padStart(2, '0');
+    }
+
+    function parseISODate(value) {
+      if (!value) return null;
+      const [y, m, d] = value.split('-').map(Number);
+      return new Date(y, m - 1, d);
+    }
+
+    function toISODate(date) {
+      return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+    }
+
+    function startOfDay(date) {
+      return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    }
+
+    function addDays(date, days) {
+      const copy = new Date(date);
+      copy.setDate(copy.getDate() + days);
+      return copy;
+    }
+
+    function daysInMonth(year, monthIndex) {
+      return new Date(year, monthIndex + 1, 0).getDate();
+    }
+
+    function makeMonthDate(year, monthIndex, day) {
+      return new Date(year, monthIndex, Math.min(day, daysInMonth(year, monthIndex)));
+    }
+
+    function addMonthsSafe(date, months) {
+      const year = date.getFullYear();
+      const month = date.getMonth() + months;
+      const next = new Date(year, month, 1);
+      return makeMonthDate(next.getFullYear(), next.getMonth(), date.getDate());
+    }
+
+    function formatDate(value) {
+      if (!value) return '—';
+      const date = typeof value === 'string' ? parseISODate(value) : value;
+      return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    }
+
+    function formatCompactDate(value) {
+      if (!value) return '—';
+      const date = typeof value === 'string' ? parseISODate(value) : value;
+      return date.toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', year: '2-digit' });
+    }
+
+    function formatMoney(value) {
+      return new Intl.NumberFormat('en-US', {
+        style: 'currency',
+        currency: 'USD',
+      }).format(Number(value || 0));
+    }
+
+    function numberOrZero(value) {
+      const n = Number(value);
+      return Number.isFinite(n) ? n : 0;
+    }
+
+    function sortByDate(a, b) {
+      return a.localeCompare(b);
+    }
+
+    function getTodayISO() {
+      return toISODate(new Date());
+    }
+
+    function getDaysUntil(dateString) {
+      const today = startOfDay(new Date());
+      const due = startOfDay(parseISODate(dateString));
+      return Math.round((due - today) / 86400000);
+    }
+
+    function getStatus(dateString, paid) {
+      if (paid) return 'Paid';
+      const days = getDaysUntil(dateString);
+      if (days < 0) return 'Overdue';
+      if (days <= 30) return 'Due Soon';
+      return 'Later';
+    }
+
+    function getStatusClass(status) {
+      if (status === 'Paid') return 'paid';
+      if (status === 'Overdue') return 'overdue';
+      if (status === 'Due Soon') return 'soon';
+      return 'later';
+    }
+
+    function escapeHtml(text) {
+      return String(text ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
+    function downloadJson(filename, data) {
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    function getPayPeriodForDate(dateString, payPeriods) {
+      const sorted = [...payPeriods].sort((a, b) => sortByDate(a.payDate, b.payDate));
+      return sorted.find((period) => {
+        const start = period.payDate;
+        const end = toISODate(addDays(parseISODate(period.payDate), 13));
+        return dateString >= start && dateString <= end;
+      });
+    }
+
+    const seedBills = [
+      { id: 'chatgpt', name: 'OpenAI ChatGPT (ACH PWP)', defaultAmount: 21.28, frequency: 'monthly', dueDay: 1, active: true, notes: '' },
+      { id: 'tmobile', name: 'T-Mobile', defaultAmount: 123, frequency: 'monthly', dueDay: 2, active: true, notes: 'Often paid early' },
+      { id: 'peacock', name: 'Peacock', defaultAmount: 6.48, frequency: 'monthly', dueDay: 4, active: true, notes: '' },
+      { id: 'texell', name: 'Texell CU Loan (12-month)', defaultAmount: 114.46, frequency: 'monthly', dueDay: 6, active: true, notes: 'Typical date is the 6th' },
+      { id: 'youtube-tv', name: 'YouTube TV', defaultAmount: 100.65, frequency: 'monthly', dueDay: 7, active: true, notes: '' },
+      { id: 'icloud', name: 'iCloud+ 200GB (Apple)', defaultAmount: 2.99, frequency: 'monthly', dueDay: 8, active: true, notes: '' },
+      { id: 'prime', name: 'Amazon Prime', defaultAmount: 7.49, frequency: 'monthly', dueDay: 8, active: true, notes: '' },
+      { id: 'prime-adfree', name: 'Prime Video Ad-Free', defaultAmount: 2.99, frequency: 'monthly', dueDay: 8, active: true, notes: '' },
+      { id: 'hbo-max', name: 'HBO Max', defaultAmount: 24.54, frequency: 'monthly', dueDay: 9, active: true, notes: '' },
+      { id: 'paramount', name: 'Paramount Plus', defaultAmount: 1.07, frequency: 'monthly', dueDay: 11, active: true, notes: '' },
+      { id: 'spotify', name: 'Spotify', defaultAmount: 12.98, frequency: 'monthly', dueDay: 13, active: true, notes: '' },
+      { id: 'galpalkal', name: 'Twitch – Galpalkal', defaultAmount: 6.48, frequency: 'monthly', dueDay: 13, active: true, notes: '' },
+      { id: 'steve-suptic', name: 'Twitch – Steve Suptic', defaultAmount: 35.94, frequency: 'semiannual', dueDay: 13, dueMonths: [3, 9], active: true, notes: 'Runs in March and September' },
+      { id: 'nytimes', name: 'NYTimes', defaultAmount: 1.6, frequency: 'monthly', dueDay: 13, active: true, notes: '' },
+      { id: 'att-fiber', name: 'AT&T Fiber', defaultAmount: 72.67, frequency: 'monthly', dueDay: 15, active: true, notes: '' },
+      { id: 'belton-utilities', name: 'City of Belton Utilities', defaultAmount: 85, frequency: 'monthly', dueDay: 15, active: true, notes: 'Edit when the bill changes' },
+      { id: 'videoshop', name: 'Videoshop Pro (Apple)', defaultAmount: 3.99, frequency: 'monthly', dueDay: 16, active: true, notes: '' },
+      { id: 'ring', name: 'Ring', defaultAmount: 10.81, frequency: 'monthly', dueDay: 16, active: true, notes: '' },
+      { id: 'gdrive', name: 'Google Drive Storage (Apple)', defaultAmount: 2.99, frequency: 'monthly', dueDay: 17, active: true, notes: '' },
+      { id: 'druija', name: 'Twitch – Druija', defaultAmount: 6.48, frequency: 'monthly', dueDay: 17, active: true, notes: '' },
+      { id: 'upstart', name: 'Upstart Loan', defaultAmount: 60.14, frequency: 'monthly', dueDay: 17, active: true, notes: '' },
+      { id: 'atmos', name: 'Atmos Energy (Natural Gas)', defaultAmount: 46.66, frequency: 'monthly', dueDay: 18, active: true, notes: 'Edit when the bill changes' },
+      { id: 'netflix', name: 'Netflix', defaultAmount: 17.99, frequency: 'monthly', dueDay: 18, active: false, notes: 'Paused in the workbook, turn back on when needed' },
+      { id: 'nordvpn', name: 'NordVPN', defaultAmount: 14.03, frequency: 'monthly', dueDay: 18, active: true, notes: '' },
+      { id: 'disney-hulu', name: 'Disney+ Hulu Bundle (Apple)', defaultAmount: 19.99, frequency: 'monthly', dueDay: 19, active: true, notes: '' },
+      { id: 'progressive', name: 'Progressive Auto Insurance', defaultAmount: 69.09, frequency: 'monthly', dueDay: 20, active: true, notes: '' },
+      { id: 'tello', name: 'Tello Mobile', defaultAmount: 6.31, frequency: 'monthly', dueDay: 21, active: true, notes: '' },
+      { id: 'youtube-premium', name: 'YouTube Premium', defaultAmount: 15.14, frequency: 'monthly', dueDay: 27, active: true, notes: '' },
+      { id: 'just-energy', name: 'Just Energy (Electricity)', defaultAmount: 64.51, frequency: 'monthly', dueDay: 29, active: true, notes: 'Edit when the bill changes' },
+      { id: 'oppfi', name: 'OppFi (OppLoans) Payment', defaultAmount: 100.79, frequency: 'biweekly', anchorDate: '2026-03-06', active: true, notes: 'Every 14 days' },
+    ];
+
+    function buildSeedPayPeriods() {
+      const firstPayDate = parseISODate('2026-03-05');
+      const incomes = [1226.7, 1233.92, 1240.21, 1200, 1200, 1200, 1200, 1200, 1200, 1200, 1200, 1200, 1200, 1200, 1200, 1200];
+      return incomes.map((income, index) => ({
+        id: `period-${index + 1}`,
+        payDate: toISODate(addDays(firstPayDate, index * 14)),
+        income,
+        bankBalance: '',
+        reconciled: false,
+      }));
+    }
+
+    const seedSpending = [
+      { id: makeId('sp'), date: '2026-03-05', company: 'Steve Gift Sub', amount: 6.48, charged: true, comments: '' },
+      { id: makeId('sp'), date: '2026-03-05', company: 'Earning', amount: 106.99, charged: true, comments: '' },
+      { id: makeId('sp'), date: '2026-03-07', company: 'Zip Payments', amount: 53.28, charged: true, comments: '' },
+      { id: makeId('sp'), date: '2026-03-09', company: 'CALM donation', amount: 17.06, charged: true, comments: '' },
+      { id: makeId('sp'), date: '2026-03-13', company: 'Amazon purchase', amount: 32.77, charged: true, comments: '' },
+      { id: makeId('sp'), date: '2026-03-18', company: 'HEB groceries Favor', amount: 36.41, charged: true, comments: '' },
+      { id: makeId('sp'), date: '2026-03-19', company: 'PlayStation', amount: 10.81, charged: true, comments: '' },
+      { id: makeId('sp'), date: '2026-03-19', company: 'Amazon', amount: 48.13, charged: true, comments: '' },
+      { id: makeId('sp'), date: '2026-03-21', company: 'HEB car wash', amount: 11.99, charged: true, comments: '' },
+      { id: makeId('sp'), date: '2026-03-22', company: '7 Brew Coffee', amount: 7.41, charged: true, comments: '' },
+      { id: makeId('sp'), date: '2026-03-25', company: 'Property Tax payment', amount: 606, charged: true, comments: '' },
+      { id: makeId('sp'), date: '2026-03-28', company: 'ATM withdrawal', amount: 55, charged: true, comments: '' },
+    ];
+
+    const seedDeposits = [
+      { id: makeId('dep'), date: '2026-04-08', amount: 60, comments: 'From Dad for iPhone' },
+    ];
+
+    const defaultData = {
+      settings: {
+        openingBalance: 56.85,
+        scheduleMonthsForward: 12,
+      },
+      bills: seedBills,
+      payPeriods: buildSeedPayPeriods(),
+      spending: seedSpending,
+      deposits: seedDeposits,
+      scheduleMeta: {},
+    };
+
+    let state = loadState();
+    let activeTab = 'dashboard';
+    let scheduleSearch = '';
+    let next30Only = true;
+
+    function loadState() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        return raw ? JSON.parse(raw) : structuredClone(defaultData);
+      } catch {
+        return structuredClone(defaultData);
+      }
+    }
+
+    function saveState() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    }
+
+    function setState(updater) {
+      state = updater(state);
+      saveState();
+      renderApp();
+    }
+
+    function structuredClone(value) {
+      return JSON.parse(JSON.stringify(value));
+    }
+
+    function getScheduleRows() {
+      const bills = state.bills || [];
+      const scheduleMeta = state.scheduleMeta || {};
+      const settings = state.settings || defaultData.settings;
+      const start = addDays(new Date(), -45);
+      const end = addMonthsSafe(new Date(), settings.scheduleMonthsForward || 12);
+      const rows = [];
+
+      bills.forEach((bill) => {
+        if (!bill.active) return;
+
+        if (bill.frequency === 'monthly') {
+          const cursor = new Date(start.getFullYear(), start.getMonth(), 1);
+          const lastMonth = new Date(end.getFullYear(), end.getMonth(), 1);
+          while (cursor <= lastMonth) {
+            if (bill.dueDay) {
+              const due = makeMonthDate(cursor.getFullYear(), cursor.getMonth(), bill.dueDay);
+              if (due >= start && due <= end) {
+                const date = toISODate(due);
+                const key = `${bill.id}|${date}`;
+                const meta = scheduleMeta[key] || {};
+                rows.push({
+                  key,
+                  billId: bill.id,
+                  billName: bill.name,
+                  date,
+                  amount: numberOrZero(meta.customAmount ?? bill.defaultAmount),
+                  paid: Boolean(meta.paid),
+                  paidDate: meta.paidDate || '',
+                  amountPaid: meta.amountPaid ?? '',
+                  note: meta.note || '',
+                  status: getStatus(date, Boolean(meta.paid)),
+                  daysUntilDue: getDaysUntil(date),
+                });
+              }
+            }
+            cursor.setMonth(cursor.getMonth() + 1);
+          }
+        }
+
+        if (bill.frequency === 'biweekly' && bill.anchorDate) {
+          let due = parseISODate(bill.anchorDate);
+          while (due < start) due = addDays(due, 14);
+          while (due <= end) {
+            const date = toISODate(due);
+            const key = `${bill.id}|${date}`;
+            const meta = scheduleMeta[key] || {};
+            rows.push({
+              key,
+              billId: bill.id,
+              billName: bill.name,
+              date,
+              amount: numberOrZero(meta.customAmount ?? bill.defaultAmount),
+              paid: Boolean(meta.paid),
+              paidDate: meta.paidDate || '',
+              amountPaid: meta.amountPaid ?? '',
+              note: meta.note || '',
+              status: getStatus(date, Boolean(meta.paid)),
+              daysUntilDue: getDaysUntil(date),
+            });
+            due = addDays(due, 14);
+          }
+        }
+
+        if (bill.frequency === 'semiannual') {
+          const dueMonths = bill.dueMonths || [];
+          for (let year = start.getFullYear(); year <= end.getFullYear(); year += 1) {
+            dueMonths.forEach((month) => {
+              const due = makeMonthDate(year, month - 1, bill.dueDay || 1);
+              if (due >= start && due <= end) {
+                const date = toISODate(due);
+                const key = `${bill.id}|${date}`;
+                const meta = scheduleMeta[key] || {};
+                rows.push({
+                  key,
+                  billId: bill.id,
+                  billName: bill.name,
+                  date,
+                  amount: numberOrZero(meta.customAmount ?? bill.defaultAmount),
+                  paid: Boolean(meta.paid),
+                  paidDate: meta.paidDate || '',
+                  amountPaid: meta.amountPaid ?? '',
+                  note: meta.note || '',
+                  status: getStatus(date, Boolean(meta.paid)),
+                  daysUntilDue: getDaysUntil(date),
+                });
+              }
+            });
+          }
+        }
+      });
+
+      return rows.sort((a, b) => a.date.localeCompare(b.date) || a.billName.localeCompare(b.billName));
+    }
+
+    function getFilteredScheduleRows() {
+      return getScheduleRows().filter((row) => {
+        const matchesSearch = !scheduleSearch || row.billName.toLowerCase().includes(scheduleSearch.toLowerCase());
+        const matchesWindow = !next30Only || (row.daysUntilDue >= 0 && row.daysUntilDue <= 30 && !row.paid);
+        return matchesSearch && matchesWindow;
+      });
+    }
+
+    function getBudgetRows() {
+      const payPeriods = [...(state.payPeriods || [])].sort((a, b) => sortByDate(a.payDate, b.payDate));
+      const scheduleRows = getScheduleRows();
+      const spending = state.spending || [];
+      const deposits = state.deposits || [];
+      const settings = state.settings || defaultData.settings;
+      let runningBalance = numberOrZero(settings.openingBalance);
+
+      return payPeriods.map((period) => {
+        const start = period.payDate;
+        const end = toISODate(addDays(parseISODate(period.payDate), 13));
+
+        const scheduledBills = scheduleRows
+          .filter((row) => row.date >= start && row.date <= end)
+          .reduce((sum, row) => sum + numberOrZero(row.amount), 0);
+
+        const billsPaid = scheduleRows
+          .filter((row) => {
+            if (!row.paid) return false;
+            const actualDate = row.paidDate || row.date;
+            return actualDate >= start && actualDate <= end;
+          })
+          .reduce((sum, row) => sum + numberOrZero(row.amountPaid || row.amount), 0);
+
+        const periodSpending = spending
+          .filter((item) => item.charged && item.date >= start && item.date <= end)
+          .reduce((sum, item) => sum + numberOrZero(item.amount), 0);
+
+        const periodDeposits = deposits
+          .filter((item) => item.date >= start && item.date <= end)
+          .reduce((sum, item) => sum + numberOrZero(item.amount), 0);
+
+        const totalOut = scheduledBills + periodSpending;
+        const endingBalance = runningBalance + numberOrZero(period.income) + periodDeposits - totalOut;
+        const variance = period.bankBalance === '' ? '' : numberOrZero(period.bankBalance) - endingBalance;
+
+        const result = {
+          ...period,
+          windowStart: start,
+          windowEnd: end,
+          startingBalance: runningBalance,
+          deposits: periodDeposits,
+          billsScheduled: scheduledBills,
+          billsPaid,
+          otherSpending: periodSpending,
+          totalOut,
+          endingBalance,
+          rollover: endingBalance,
+          variance,
+        };
+
+        runningBalance = endingBalance;
+        return result;
+      });
+    }
+
+    function getSummary() {
+      const bills = state.bills || [];
+      const scheduleRows = getScheduleRows();
+      const budgetRows = getBudgetRows();
+      const activeBills = bills.filter((bill) => bill.active).length;
+      const next30 = scheduleRows.filter((row) => !row.paid && row.daysUntilDue >= 0 && row.daysUntilDue <= 30);
+      const overdue = scheduleRows.filter((row) => !row.paid && row.daysUntilDue < 0);
+      const today = getTodayISO();
+      const currentPeriod = budgetRows.find((row) => today >= row.windowStart && today <= row.windowEnd) || budgetRows[0];
+
+      const monthlyRunRate = bills.reduce((sum, bill) => {
+        if (!bill.active) return sum;
+        if (bill.frequency === 'monthly') return sum + numberOrZero(bill.defaultAmount);
+        if (bill.frequency === 'biweekly') return sum + (numberOrZero(bill.defaultAmount) * 26) / 12;
+        if (bill.frequency === 'semiannual') return sum + numberOrZero(bill.defaultAmount) / 6;
+        return sum;
+      }, 0);
+
+      return {
+        activeBills,
+        next30Count: next30.length,
+        next30Amount: next30.reduce((sum, row) => sum + numberOrZero(row.amount), 0),
+        overdueCount: overdue.length,
+        overdueAmount: overdue.reduce((sum, row) => sum + numberOrZero(row.amount), 0),
+        monthlyRunRate,
+        currentPeriod,
+        nextBills: next30.slice(0, 8),
+      };
+    }
+
+    function setTab(tabId) {
+      activeTab = tabId;
+      document.querySelectorAll('.tab-panel').forEach((panel) => {
+        panel.classList.toggle('hidden', panel.id !== `tab-${tabId}`);
+      });
+      document.querySelectorAll('.tab-btn').forEach((button) => {
+        button.classList.toggle('active', button.dataset.tab === tabId);
+      });
+    }
+
+    function renderTabs() {
+      const el = document.getElementById('tabs');
+      el.innerHTML = tabs.map((tab) => `
+        <button class="tab-btn ${activeTab === tab.id ? 'active' : ''}" data-tab="${tab.id}">${tab.label}</button>
+      `).join('');
+
+      el.querySelectorAll('.tab-btn').forEach((button) => {
+        button.addEventListener('click', () => setTab(button.dataset.tab));
+      });
+    }
+
+    function renderDashboard() {
+      const summary = getSummary();
+      const current = summary.currentPeriod;
+      const nextBillsHtml = summary.nextBills.length
+        ? summary.nextBills.map((row) => `
+          <div class="next-item">
+            <div>${escapeHtml(formatDate(row.date))}</div>
+            <div>${escapeHtml(row.billName)}</div>
+            <div>${escapeHtml(formatMoney(row.amount))}</div>
+            <div><span class="status ${getStatusClass(row.status)}">${escapeHtml(row.status)}</span></div>
+          </div>
+        `).join('')
+        : `<div class="note-box">No bills due in the next 30 days right now.</div>`;
+
+      document.getElementById('tab-dashboard').innerHTML = `
+        <div class="stats">
+          <div class="stat">
+            <div class="label">Active bills</div>
+            <div class="value">${summary.activeBills}</div>
+            <div class="sub">Pulled from the Bills tab</div>
+          </div>
+          <div class="stat">
+            <div class="label">Due in next 30 days</div>
+            <div class="value">${summary.next30Count}</div>
+            <div class="sub">${formatMoney(summary.next30Amount)}</div>
+          </div>
+          <div class="stat">
+            <div class="label">Overdue</div>
+            <div class="value">${summary.overdueCount}</div>
+            <div class="sub">${formatMoney(summary.overdueAmount)}</div>
+          </div>
+          <div class="stat">
+            <div class="label">Monthly run rate</div>
+            <div class="value">${formatMoney(summary.monthlyRunRate)}</div>
+            <div class="sub">Monthly plus converted recurring items</div>
+          </div>
+        </div>
+
+        <div class="grid-two">
+          <div class="panel">
+            <div class="panel-head">
+              <div>
+                <h2>Current pay period snapshot</h2>
+                <p>The same biweekly flow as the workbook, just cleaner.</p>
+              </div>
+            </div>
+            <div class="panel-body">
+              ${current ? `
+                <div class="stats" style="grid-template-columns: repeat(4, minmax(0, 1fr)); margin-bottom: 0;">
+                  <div class="stat">
+                    <div class="label">Pay date</div>
+                    <div class="value" style="font-size: 24px;">${formatCompactDate(current.payDate)}</div>
+                    <div class="sub">${formatCompactDate(current.windowStart)} to ${formatCompactDate(current.windowEnd)}</div>
+                  </div>
+                  <div class="stat">
+                    <div class="label">Bills scheduled</div>
+                    <div class="value" style="font-size: 24px;">${formatMoney(current.billsScheduled)}</div>
+                    <div class="sub">Bills paid so far: ${formatMoney(current.billsPaid)}</div>
+                  </div>
+                  <div class="stat">
+                    <div class="label">Other spending</div>
+                    <div class="value" style="font-size: 24px;">${formatMoney(current.otherSpending)}</div>
+                    <div class="sub">Deposits: ${formatMoney(current.deposits)}</div>
+                  </div>
+                  <div class="stat">
+                    <div class="label">Projected ending</div>
+                    <div class="value" style="font-size: 24px;">${formatMoney(current.endingBalance)}</div>
+                    <div class="sub">Income: ${formatMoney(current.income)}</div>
+                  </div>
+                </div>
+              ` : `<div class="note-box">No pay periods yet.</div>`}
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-head">
+              <div>
+                <h2>App settings</h2>
+                <p>Small controls that shape the whole tracker.</p>
+              </div>
+            </div>
+            <div class="panel-body stack">
+              <div>
+                <label class="muted" for="openingBalanceInput" style="display:block; margin-bottom: 8px;">Opening balance</label>
+                <input class="field" id="openingBalanceInput" type="number" step="0.01" value="${state.settings.openingBalance}" />
+              </div>
+              <div>
+                <label class="muted" for="monthsForwardInput" style="display:block; margin-bottom: 8px;">Schedule horizon, months forward</label>
+                <input class="field" id="monthsForwardInput" type="number" min="1" max="24" value="${state.settings.scheduleMonthsForward}" />
+              </div>
+              <div class="note-box">
+                The schedule is generated from active bills. The budget tracker then rolls the scheduled bills,
+                spending, and deposits into each biweekly window.
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head">
+            <div>
+              <h2>Next bills coming up</h2>
+              <p>This is the app version of your next 30 days view.</p>
+            </div>
+          </div>
+          <div class="panel-body">
+            <div class="next-list">${nextBillsHtml}</div>
+          </div>
+        </div>
+      `;
+
+      document.getElementById('openingBalanceInput')?.addEventListener('change', (e) => {
+        setState((currentState) => ({
+          ...currentState,
+          settings: {
+            ...currentState.settings,
+            openingBalance: numberOrZero(e.target.value),
+          },
+        }));
+      });
+
+      document.getElementById('monthsForwardInput')?.addEventListener('change', (e) => {
+        setState((currentState) => ({
+          ...currentState,
+          settings: {
+            ...currentState.settings,
+            scheduleMonthsForward: Math.max(1, numberOrZero(e.target.value)),
+          },
+        }));
+      });
+    }
+
+    function renderBills() {
+      const html = `
+        <div class="panel">
+          <div class="panel-head">
+            <div>
+              <h2>Bills</h2>
+              <p>Your main recurring bill list, just like the workbook.</p>
+            </div>
+            <div class="controls">
+              <button class="btn" id="addBillBtn">Add bill</button>
+            </div>
+          </div>
+          <div class="panel-body">
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Name</th>
+                    <th>Amount</th>
+                    <th>Frequency</th>
+                    <th>Due day</th>
+                    <th>Anchor date</th>
+                    <th>Active</th>
+                    <th>Notes</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${(state.bills || []).map((bill) => `
+                    <tr>
+                      <td><input class="field bill-name" data-id="${bill.id}" value="${escapeHtml(bill.name)}" /></td>
+                      <td><input class="field bill-amount" data-id="${bill.id}" type="number" step="0.01" value="${bill.defaultAmount}" /></td>
+                      <td>
+                        <select class="select bill-frequency" data-id="${bill.id}">
+                          <option value="monthly" ${bill.frequency === 'monthly' ? 'selected' : ''}>Monthly</option>
+                          <option value="biweekly" ${bill.frequency === 'biweekly' ? 'selected' : ''}>Biweekly</option>
+                          <option value="semiannual" ${bill.frequency === 'semiannual' ? 'selected' : ''}>Semiannual</option>
+                        </select>
+                      </td>
+                      <td><input class="field bill-due-day" data-id="${bill.id}" type="number" min="1" max="31" value="${bill.dueDay ?? ''}" /></td>
+                      <td><input class="field bill-anchor" data-id="${bill.id}" type="date" value="${bill.anchorDate ?? ''}" /></td>
+                      <td><input class="bill-active" data-id="${bill.id}" type="checkbox" ${bill.active ? 'checked' : ''} /></td>
+                      <td><input class="field bill-notes" data-id="${bill.id}" value="${escapeHtml(bill.notes || '')}" /></td>
+                      <td><button class="danger-btn delete-bill" data-id="${bill.id}">Remove</button></td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      `;
+
+      document.getElementById('tab-bills').innerHTML = html;
+
+      document.getElementById('addBillBtn')?.addEventListener('click', () => {
+        setState((currentState) => ({
+          ...currentState,
+          bills: [
+            ...currentState.bills,
+            {
+              id: makeId('bill'),
+              name: 'New Bill',
+              defaultAmount: 0,
+              frequency: 'monthly',
+              dueDay: 1,
+              active: true,
+              notes: '',
+            },
+          ],
+        }));
+      });
+
+      document.querySelectorAll('.bill-name').forEach((el) => el.addEventListener('change', (e) => updateBillField(e.target.dataset.id, 'name', e.target.value)));
+      document.querySelectorAll('.bill-amount').forEach((el) => el.addEventListener('change', (e) => updateBillField(e.target.dataset.id, 'defaultAmount', numberOrZero(e.target.value))));
+      document.querySelectorAll('.bill-frequency').forEach((el) => el.addEventListener('change', (e) => updateBillField(e.target.dataset.id, 'frequency', e.target.value)));
+      document.querySelectorAll('.bill-due-day').forEach((el) => el.addEventListener('change', (e) => updateBillField(e.target.dataset.id, 'dueDay', e.target.value === '' ? '' : numberOrZero(e.target.value))));
+      document.querySelectorAll('.bill-anchor').forEach((el) => el.addEventListener('change', (e) => updateBillField(e.target.dataset.id, 'anchorDate', e.target.value)));
+      document.querySelectorAll('.bill-active').forEach((el) => el.addEventListener('change', (e) => updateBillField(e.target.dataset.id, 'active', e.target.checked)));
+      document.querySelectorAll('.bill-notes').forEach((el) => el.addEventListener('change', (e) => updateBillField(e.target.dataset.id, 'notes', e.target.value)));
+      document.querySelectorAll('.delete-bill').forEach((el) => el.addEventListener('click', (e) => {
+        const id = e.target.dataset.id;
+        setState((currentState) => ({
+          ...currentState,
+          bills: currentState.bills.filter((bill) => bill.id !== id),
+        }));
+      }));
+    }
+
+    function renderSchedule() {
+      const rows = getFilteredScheduleRows();
+      const html = `
+        <div class="panel">
+          <div class="panel-head">
+            <div>
+              <h2>Schedule</h2>
+              <p>Generated from active bills, with paid tracking, custom amounts, and notes.</p>
+            </div>
+            <div class="controls">
+              <input class="field inline-field" id="scheduleSearch" placeholder="Search bills" value="${escapeHtml(scheduleSearch)}" />
+              <label class="checkbox-wrap"><input type="checkbox" id="next30OnlyToggle" ${next30Only ? 'checked' : ''} />Next 30 days only</label>
+            </div>
+          </div>
+          <div class="panel-body">
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Due date</th>
+                    <th>Bill</th>
+                    <th>Amount</th>
+                    <th>Paid?</th>
+                    <th>Paid date</th>
+                    <th>Amount paid</th>
+                    <th>Note</th>
+                    <th>Days</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${rows.map((row) => `
+                    <tr>
+                      <td>${escapeHtml(formatDate(row.date))}</td>
+                      <td>${escapeHtml(row.billName)}</td>
+                      <td><input class="field schedule-amount" data-key="${row.key}" type="number" step="0.01" value="${row.amount}" /></td>
+                      <td><input class="schedule-paid" data-key="${row.key}" type="checkbox" ${row.paid ? 'checked' : ''} /></td>
+                      <td><input class="field schedule-paid-date" data-key="${row.key}" type="date" value="${escapeHtml(row.paidDate || '')}" /></td>
+                      <td><input class="field schedule-amount-paid" data-key="${row.key}" type="number" step="0.01" value="${escapeHtml(row.amountPaid)}" /></td>
+                      <td><input class="field schedule-note" data-key="${row.key}" value="${escapeHtml(row.note || '')}" /></td>
+                      <td>${row.daysUntilDue}</td>
+                      <td><span class="status ${getStatusClass(row.status)}">${escapeHtml(row.status)}</span></td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      `;
+
+      document.getElementById('tab-schedule').innerHTML = html;
+
+      document.getElementById('scheduleSearch')?.addEventListener('input', (e) => {
+        scheduleSearch = e.target.value;
+        renderSchedule();
+      });
+
+      document.getElementById('next30OnlyToggle')?.addEventListener('change', (e) => {
+        next30Only = e.target.checked;
+        renderSchedule();
+      });
+
+      document.querySelectorAll('.schedule-amount').forEach((el) => el.addEventListener('change', (e) => updateScheduleMeta(e.target.dataset.key, { customAmount: numberOrZero(e.target.value) })));
+      document.querySelectorAll('.schedule-paid').forEach((el) => el.addEventListener('change', (e) => {
+        const key = e.target.dataset.key;
+        updateScheduleMeta(key, { paid: e.target.checked, paidDate: e.target.checked ? getTodayISO() : '' });
+      }));
+      document.querySelectorAll('.schedule-paid-date').forEach((el) => el.addEventListener('change', (e) => updateScheduleMeta(e.target.dataset.key, { paidDate: e.target.value })));
+      document.querySelectorAll('.schedule-amount-paid').forEach((el) => el.addEventListener('change', (e) => updateScheduleMeta(e.target.dataset.key, { amountPaid: e.target.value })));
+      document.querySelectorAll('.schedule-note').forEach((el) => el.addEventListener('change', (e) => updateScheduleMeta(e.target.dataset.key, { note: e.target.value })));
+    }
+
+    function renderBudget() {
+      const rows = getBudgetRows();
+      const html = `
+        <div class="panel">
+          <div class="panel-head">
+            <div>
+              <h2>Budget Tracker</h2>
+              <p>Biweekly windows with the same main math as your workbook.</p>
+            </div>
+            <div class="controls">
+              <button class="btn" id="addPayPeriodBtn">Add pay period</button>
+            </div>
+          </div>
+          <div class="panel-body">
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Pay date</th>
+                    <th>Window</th>
+                    <th>Starting balance</th>
+                    <th>Income</th>
+                    <th>Deposits</th>
+                    <th>Bills scheduled</th>
+                    <th>Bills paid</th>
+                    <th>Other spending</th>
+                    <th>Total out</th>
+                    <th>Ending balance</th>
+                    <th>Rollover</th>
+                    <th>Bank balance</th>
+                    <th>Variance</th>
+                    <th>Reconciled?</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${rows.map((row) => `
+                    <tr>
+                      <td><input class="field pay-date" data-id="${row.id}" type="date" value="${row.payDate}" /></td>
+                      <td>${formatCompactDate(row.windowStart)} to ${formatCompactDate(row.windowEnd)}</td>
+                      <td>${formatMoney(row.startingBalance)}</td>
+                      <td><input class="field pay-income" data-id="${row.id}" type="number" step="0.01" value="${row.income}" /></td>
+                      <td>${formatMoney(row.deposits)}</td>
+                      <td>${formatMoney(row.billsScheduled)}</td>
+                      <td>${formatMoney(row.billsPaid)}</td>
+                      <td>${formatMoney(row.otherSpending)}</td>
+                      <td>${formatMoney(row.totalOut)}</td>
+                      <td>${formatMoney(row.endingBalance)}</td>
+                      <td>${formatMoney(row.rollover)}</td>
+                      <td><input class="field pay-bank-balance" data-id="${row.id}" type="number" step="0.01" value="${escapeHtml(row.bankBalance)}" /></td>
+                      <td>${row.variance === '' ? '—' : formatMoney(row.variance)}</td>
+                      <td><input class="pay-reconciled" data-id="${row.id}" type="checkbox" ${row.reconciled ? 'checked' : ''} /></td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      `;
+
+      document.getElementById('tab-budget').innerHTML = html;
+
+      document.getElementById('addPayPeriodBtn')?.addEventListener('click', () => {
+        setState((currentState) => {
+          const sorted = [...currentState.payPeriods].sort((a, b) => sortByDate(a.payDate, b.payDate));
+          const last = sorted[sorted.length - 1];
+          const nextDate = last ? toISODate(addDays(parseISODate(last.payDate), 14)) : getTodayISO();
+          const lastIncome = last ? numberOrZero(last.income) : 1200;
+          return {
+            ...currentState,
+            payPeriods: [...sorted, { id: makeId('period'), payDate: nextDate, income: lastIncome, bankBalance: '', reconciled: false }],
+          };
+        });
+      });
+
+      document.querySelectorAll('.pay-date').forEach((el) => el.addEventListener('change', (e) => updatePayPeriodField(e.target.dataset.id, 'payDate', e.target.value)));
+      document.querySelectorAll('.pay-income').forEach((el) => el.addEventListener('change', (e) => updatePayPeriodField(e.target.dataset.id, 'income', numberOrZero(e.target.value))));
+      document.querySelectorAll('.pay-bank-balance').forEach((el) => el.addEventListener('change', (e) => updatePayPeriodField(e.target.dataset.id, 'bankBalance', e.target.value)));
+      document.querySelectorAll('.pay-reconciled').forEach((el) => el.addEventListener('change', (e) => updatePayPeriodField(e.target.dataset.id, 'reconciled', e.target.checked)));
+    }
+
+    function renderSpending() {
+      const rows = [...(state.spending || [])].sort((a, b) => sortByDate(a.date, b.date));
+      const html = `
+        <div class="panel">
+          <div class="panel-head">
+            <div>
+              <h2>Other Spending</h2>
+              <p>Tracks the extra stuff outside the regular bill schedule.</p>
+            </div>
+            <div class="controls">
+              <button class="btn" id="addSpendingBtn">Add spending row</button>
+            </div>
+          </div>
+          <div class="panel-body">
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Pay period</th>
+                    <th>Date</th>
+                    <th>Company</th>
+                    <th>Amount</th>
+                    <th>Charged?</th>
+                    <th>Comments</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${rows.map((item) => {
+                    const period = getPayPeriodForDate(item.date, state.payPeriods || []);
+                    return `
+                      <tr>
+                        <td>${period ? formatCompactDate(period.payDate) : 'Outside range'}</td>
+                        <td><input class="field spend-date" data-id="${item.id}" type="date" value="${item.date}" /></td>
+                        <td><input class="field spend-company" data-id="${item.id}" value="${escapeHtml(item.company)}" /></td>
+                        <td><input class="field spend-amount" data-id="${item.id}" type="number" step="0.01" value="${item.amount}" /></td>
+                        <td><input class="spend-charged" data-id="${item.id}" type="checkbox" ${item.charged ? 'checked' : ''} /></td>
+                        <td><input class="field spend-comments" data-id="${item.id}" value="${escapeHtml(item.comments || '')}" /></td>
+                        <td><button class="danger-btn delete-spend" data-id="${item.id}">Remove</button></td>
+                      </tr>
+                    `;
+                  }).join('')}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      `;
+
+      document.getElementById('tab-spending').innerHTML = html;
+
+      document.getElementById('addSpendingBtn')?.addEventListener('click', () => {
+        setState((currentState) => ({
+          ...currentState,
+          spending: [
+            ...currentState.spending,
+            { id: makeId('sp'), date: getTodayISO(), company: '', amount: 0, charged: true, comments: '' },
+          ],
+        }));
+      });
+
+      document.querySelectorAll('.spend-date').forEach((el) => el.addEventListener('change', (e) => updateSpendingField(e.target.dataset.id, 'date', e.target.value)));
+      document.querySelectorAll('.spend-company').forEach((el) => el.addEventListener('change', (e) => updateSpendingField(e.target.dataset.id, 'company', e.target.value)));
+      document.querySelectorAll('.spend-amount').forEach((el) => el.addEventListener('change', (e) => updateSpendingField(e.target.dataset.id, 'amount', numberOrZero(e.target.value))));
+      document.querySelectorAll('.spend-charged').forEach((el) => el.addEventListener('change', (e) => updateSpendingField(e.target.dataset.id, 'charged', e.target.checked)));
+      document.querySelectorAll('.spend-comments').forEach((el) => el.addEventListener('change', (e) => updateSpendingField(e.target.dataset.id, 'comments', e.target.value)));
+      document.querySelectorAll('.delete-spend').forEach((el) => el.addEventListener('click', (e) => {
+        const id = e.target.dataset.id;
+        setState((currentState) => ({
+          ...currentState,
+          spending: currentState.spending.filter((item) => item.id !== id),
+        }));
+      }));
+    }
+
+    function renderDeposits() {
+      const rows = [...(state.deposits || [])].sort((a, b) => sortByDate(a.date, b.date));
+      const html = `
+        <div class="panel">
+          <div class="panel-head">
+            <div>
+              <h2>Deposits</h2>
+              <p>Extra inflows that land inside your pay periods.</p>
+            </div>
+            <div class="controls">
+              <button class="btn" id="addDepositBtn">Add deposit row</button>
+            </div>
+          </div>
+          <div class="panel-body">
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Pay period</th>
+                    <th>Date</th>
+                    <th>Amount</th>
+                    <th>Comments</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${rows.map((item) => {
+                    const period = getPayPeriodForDate(item.date, state.payPeriods || []);
+                    return `
+                      <tr>
+                        <td>${period ? formatCompactDate(period.payDate) : 'Outside range'}</td>
+                        <td><input class="field deposit-date" data-id="${item.id}" type="date" value="${item.date}" /></td>
+                        <td><input class="field deposit-amount" data-id="${item.id}" type="number" step="0.01" value="${item.amount}" /></td>
+                        <td><input class="field deposit-comments" data-id="${item.id}" value="${escapeHtml(item.comments || '')}" /></td>
+                        <td><button class="danger-btn delete-deposit" data-id="${item.id}">Remove</button></td>
+                      </tr>
+                    `;
+                  }).join('')}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      `;
+
+      document.getElementById('tab-deposits').innerHTML = html;
+
+      document.getElementById('addDepositBtn')?.addEventListener('click', () => {
+        setState((currentState) => ({
+          ...currentState,
+          deposits: [
+            ...currentState.deposits,
+            { id: makeId('dep'), date: getTodayISO(), amount: 0, comments: '' },
+          ],
+        }));
+      });
+
+      document.querySelectorAll('.deposit-date').forEach((el) => el.addEventListener('change', (e) => updateDepositField(e.target.dataset.id, 'date', e.target.value)));
+      document.querySelectorAll('.deposit-amount').forEach((el) => el.addEventListener('change', (e) => updateDepositField(e.target.dataset.id, 'amount', numberOrZero(e.target.value))));
+      document.querySelectorAll('.deposit-comments').forEach((el) => el.addEventListener('change', (e) => updateDepositField(e.target.dataset.id, 'comments', e.target.value)));
+      document.querySelectorAll('.delete-deposit').forEach((el) => el.addEventListener('click', (e) => {
+        const id = e.target.dataset.id;
+        setState((currentState) => ({
+          ...currentState,
+          deposits: currentState.deposits.filter((item) => item.id !== id),
+        }));
+      }));
+    }
+
+    function updateBillField(id, key, value) {
+      setState((currentState) => ({
+        ...currentState,
+        bills: currentState.bills.map((bill) => bill.id === id ? { ...bill, [key]: value } : bill),
+      }));
+    }
+
+    function updateScheduleMeta(key, patch) {
+      setState((currentState) => ({
+        ...currentState,
+        scheduleMeta: {
+          ...currentState.scheduleMeta,
+          [key]: {
+            ...(currentState.scheduleMeta[key] || {}),
+            ...patch,
+          },
+        },
+      }));
+    }
+
+    function updatePayPeriodField(id, key, value) {
+      setState((currentState) => ({
+        ...currentState,
+        payPeriods: currentState.payPeriods.map((period) => period.id === id ? { ...period, [key]: value } : period),
+      }));
+    }
+
+    function updateSpendingField(id, key, value) {
+      setState((currentState) => ({
+        ...currentState,
+        spending: currentState.spending.map((item) => item.id === id ? { ...item, [key]: value } : item),
+      }));
+    }
+
+    function updateDepositField(id, key, value) {
+      setState((currentState) => ({
+        ...currentState,
+        deposits: currentState.deposits.map((item) => item.id === id ? { ...item, [key]: value } : item),
+      }));
+    }
+
+    function renderApp() {
+      renderTabs();
+      renderDashboard();
+      renderBills();
+      renderSchedule();
+      renderBudget();
+      renderSpending();
+      renderDeposits();
+      setTab(activeTab);
+    }
+
+    document.getElementById('exportBtn').addEventListener('click', () => {
+      downloadJson('baller-budget-backup.json', state);
+    });
+
+    document.getElementById('seedBtn').addEventListener('click', () => {
+      localStorage.removeItem(STORAGE_KEY);
+      state = structuredClone(defaultData);
+      saveState();
+      renderApp();
+    });
+
+    document.getElementById('importFile').addEventListener('change', async (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      try {
+        const text = await file.text();
+        const parsed = JSON.parse(text);
+        state = parsed;
+        saveState();
+        renderApp();
+      } catch (error) {
+        alert('That backup file could not be read.');
+      } finally {
+        e.target.value = '';
+      }
+    });
+
+    renderApp();
+  </script>
+</body>
+</html>
