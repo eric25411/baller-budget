@@ -640,15 +640,15 @@
     ];
 
     function buildSeedPayPeriods() {
-      const firstPayDate = parseISODate('2026-03-05');
-      const incomes = [1226.7, 1233.92, 1240.21, 1200, 1200, 1200, 1200, 1200, 1200, 1200, 1200, 1200, 1200, 1200, 1200, 1200];
-      return incomes.map((income, index) => ({
-        id: `period-${index + 1}`,
-        payDate: toISODate(addDays(firstPayDate, index * 14)),
-        income,
-        bankBalance: '',
-        reconciled: false,
-      }));
+      return [
+        {
+          id: 'period-1',
+          payDate: '2026-03-05',
+          income: 1200,
+          bankBalance: '',
+          reconciled: false,
+        },
+      ];
     }
 
     const seedSpending = [];
@@ -1209,7 +1209,7 @@
               <p>Biweekly windows with the same main math as your workbook.</p>
             </div>
             <div class="controls">
-              <button class="btn" id="addPayPeriodBtn">Add pay period</button>
+              <button class="btn" id="addPayPeriodBtn">Start New Period</button>
             </div>
           </div>
           <div class="panel-body">
@@ -1273,6 +1273,7 @@
           };
         });
       });
+      });
 
       document.querySelectorAll('.pay-date').forEach((el) => el.addEventListener('change', (e) => updatePayPeriodField(e.target.dataset.id, 'payDate', e.target.value)));
       document.querySelectorAll('.pay-income').forEach((el) => el.addEventListener('change', (e) => updatePayPeriodField(e.target.dataset.id, 'income', numberOrZero(e.target.value))));
@@ -1302,10 +1303,7 @@
               <p>Spending is grouped by each pay period so it is easier to track what belongs where.</p>
             </div>
             <div class="controls">
-              <button class="btn" id="addSpendingBtn">Add spending row</button>
-            </div>
-          </div>
-          <div class="panel-body stack">
+              <div class="panel-body stack">
             ${groups.map((group) => `
               <div class="panel" style="margin-bottom: 0; background: rgba(2, 6, 23, 0.42); box-shadow: none;">
                 <div class="panel-head">
@@ -1313,7 +1311,10 @@
                     <h3>${formatCompactDate(group.payDate)} pay period</h3>
                     <p>${formatCompactDate(group.windowStart)} to ${formatCompactDate(group.windowEnd)}</p>
                   </div>
-                  <div class="muted">Tracked spending: ${formatMoney(group.total)}</div>
+                  <div class="controls">
+                    <div class="muted">Tracked spending: ${formatMoney(group.total)}</div>
+                    <button class="mini-btn add-spending-for-period" data-period-id="${group.id}">+ Add spending</button>
+                  </div>
                 </div>
                 <div class="panel-body">
                   ${group.items.length ? `
@@ -1392,15 +1393,19 @@
 
       document.getElementById('tab-spending').innerHTML = html;
 
-      document.getElementById('addSpendingBtn')?.addEventListener('click', () => {
+      document.querySelectorAll('.add-spending-for-period').forEach((el) => el.addEventListener('click', (e) => {
+        const periodId = e.target.dataset.periodId;
+        const period = (state.payPeriods || []).find((item) => item.id === periodId);
+        if (!period) return;
+        const startDate = period.payDate;
         setState((currentState) => ({
           ...currentState,
           spending: [
             ...currentState.spending,
-            { id: makeId('sp'), date: getTodayISO(), company: '', amount: 0, charged: true, comments: '' },
+            { id: makeId('sp'), date: startDate, company: '', amount: 0, charged: true, comments: '' },
           ],
         }));
-      });
+      }));
 
       document.querySelectorAll('.spend-date').forEach((el) => el.addEventListener('change', (e) => updateSpendingField(e.target.dataset.id, 'date', e.target.value)));
       document.querySelectorAll('.spend-company').forEach((el) => el.addEventListener('change', (e) => updateSpendingField(e.target.dataset.id, 'company', e.target.value)));
