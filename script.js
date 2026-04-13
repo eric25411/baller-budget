@@ -758,34 +758,47 @@ function renderDashboard() {
   }
 }
 
-function renderBills() {
-  const billsEmpty = !(state.bills || []).length;
-  const emptyHtml = billsEmpty
-    ? '<div class="panel"><div class="panel-body"><div class="empty-state"><h3>No bills yet</h3><p>Add your recurring bills here so BudgetFlow can build your schedule and show what is coming up next.</p><div class="empty-state-actions"><button class="btn" id="emptyAddBillBtn">Add your first bill</button></div></div></div></div>'
-    : '';
+function renderSchedule() {
+  const container = document.getElementById('tab-schedule');
+  const items = state.schedule || [];
 
-  const target = document.getElementById('tab-bills');
-  if (!target) return;
+  if (items.length === 0) {
+    container.innerHTML = '<div class="empty-state"><h3>No scheduled items</h3></div>';
+    return;
+  }
 
-  target.innerHTML =
-    emptyHtml +
-    '<div class="panel"><div class="panel-head"><div><h2>Bills</h2><p>Your recurring bill list.</p></div><div class="controls"><button class="btn" id="addBillBtn">Add bill</button></div></div><div class="panel-body">' +
-      (billsEmpty ? '<div class="note-box">Once you add bills here, the Schedule tab will automatically map them out by due date.</div>' : '') +
-      '<div class="table-wrap"><table><thead><tr><th>Name</th><th>Amount</th><th>Frequency</th><th>Due day</th><th>Anchor date</th><th>Due months</th><th>Active</th><th>Notes</th><th></th></tr></thead><tbody>' +
-        (state.bills || []).map(function (bill) {
-          return '<tr>' +
-            '<td><input class="field bill-name" data-id="' + bill.id + '" value="' + escapeHtml(bill.name) + '" /></td>' +
-            '<td><input class="field bill-amount" data-id="' + bill.id + '" type="number" step="0.01" value="' + bill.defaultAmount + '" /></td>' +
-            '<td><select class="select bill-frequency" data-id="' + bill.id + '"><option value="monthly" ' + (bill.frequency === 'monthly' ? 'selected' : '') + '>Monthly</option><option value="biweekly" ' + (bill.frequency === 'biweekly' ? 'selected' : '') + '>Biweekly</option><option value="semiannual" ' + (bill.frequency === 'semiannual' ? 'selected' : '') + '>Semiannual</option></select></td>' +
-            '<td><input class="field bill-due-day" data-id="' + bill.id + '" type="number" min="1" max="31" value="' + (bill.dueDay || '') + '" /></td>' +
-            '<td><input class="field bill-anchor" data-id="' + bill.id + '" type="date" value="' + (bill.anchorDate || '') + '" /></td>' +
-            '<td><input class="field bill-due-months" data-id="' + bill.id + '" placeholder="1,7" value="' + escapeHtml(Array.isArray(bill.dueMonths) ? bill.dueMonths.join(',') : '') + '" /></td>' +
-            '<td><input class="bill-active" data-id="' + bill.id + '" type="checkbox" ' + (bill.active ? 'checked' : '') + ' /></td>' +
-            '<td><input class="field bill-notes" data-id="' + bill.id + '" value="' + escapeHtml(bill.notes || '') + '" /></td>' +
-            '<td><button class="danger-btn delete-bill" data-id="' + bill.id + '">Remove</button></td>' +
-          '</tr>';
-        }).join('') +
-      '</tbody></table></div></div></div>';
+  let html = `
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Description</th>
+            <th>Amount</th>
+            <th>Status</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>`;
+
+  items.forEach(item => {
+    html += `
+      <tr>
+        <td data-label="Date">${item.date}</td>
+        <td data-label="Description"><strong>${item.description}</strong></td>
+        <td data-label="Amount">$${item.amount.toFixed(2)}</td>
+        <td data-label="Status">
+            <span class="status ${item.status.toLowerCase()}">${item.status}</span>
+        </td>
+        <td data-label="Actions">
+          <button class="mini-btn" onclick="editItem('${item.id}')">Edit</button>
+        </td>
+      </tr>`;
+  });
+
+  html += `</tbody></table></div>`;
+  container.innerHTML = html;
+}
 
   function addNewBill() {
     setState(function (currentState) {
