@@ -821,3 +821,83 @@ tbody tr:hover {
     padding: 0;
   }
 }
+@media (max-width: 768px) {
+  /* Hide the horizontal scroll wrapper since we won't need it */
+  .table-wrap {
+    overflow: visible;
+    border: none;
+  }
+
+  /* Hide original table headers */
+  thead {
+    display: none;
+  }
+
+  /* Turn the table body into a vertical stack */
+  table, tbody, tr, td {
+    display: block;
+    width: 100%;
+  }
+
+  table {
+    min-width: unset; /* Remove that 980px minimum */
+  }
+
+  /* Turn each row into a distinct floating card */
+  tr {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 20px;
+    padding: 16px;
+    margin-bottom: 16px;
+    box-shadow: var(--shadow);
+  }
+
+  /* Style each cell as a Row (Label: Value) */
+  td {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    text-align: right;
+  }
+
+  td:last-child {
+    border-bottom: none;
+    justify-content: center; /* Center the buttons */
+    padding-top: 15px;
+  }
+
+  /* Inject the labels from the data-label attribute */
+  td::before {
+    content: attr(data-label);
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--muted);
+    float: left;
+    text-align: left;
+  }
+
+  /* Make the "Description" or "Name" stand out as a header */
+  td[data-label="Description"], 
+  td[data-label="Name"] {
+    flex-direction: column;
+    align-items: flex-start;
+    border-bottom: 2px solid var(--accent-soft);
+    margin-bottom: 8px;
+  }
+
+  td[data-label="Description"]::before,
+  td[data-label="Name"]::before {
+    margin-bottom: 4px;
+  }
+
+  td[data-label="Description"] strong,
+  td[data-label="Name"] strong {
+    font-size: 18px;
+    color: var(--text);
+  }
+}
