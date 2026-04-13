@@ -1,49 +1,29 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>BudgetFlow</title>
-  <meta name="theme-color" content="#0f172a" />
-  <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <meta name="apple-mobile-web-app-title" content="BudgetFlow" />
-  <link rel="icon" type="image/svg+xml" href="favicon.svg" />
-  <link rel="apple-touch-icon" href="apple-touch-icon.png" />
-  <link rel="manifest" href="site.webmanifest" />
-  <link rel="stylesheet" href="style.css" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>BudgetFlow Baseline</title>
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <div class="app">
-    <section class="hero">
-      <div class="hero-grid">
-        <div class="hero-copy">
-          <div class="badge">Personal Budget Planner</div>
-          <h1>BudgetFlow</h1>
-          <p>
-            A clean budgeting workspace for tracking recurring bills, pay periods, spending, deposits, and cash flow in one place.
-          </p>
-        </div>
-        <div class="hero-actions">
-          <button class="btn" id="exportBtn">Download backup</button>
-          <label class="upload-label" for="importFile">Import backup</label>
-          <input id="importFile" type="file" accept="application/json" />
-          <button class="ghost-btn" id="seedBtn">Reset app</button>
-        </div>
-      </div>
-    </section>
 
-    <nav class="tabs" id="tabs"></nav>
+  <header class="app-header">
+    <h1>BudgetFlow</h1>
+  </header>
 
-    <section class="tab-panel" id="tab-dashboard"></section>
-    <section class="tab-panel hidden" id="tab-bills"></section>
-    <section class="tab-panel hidden" id="tab-schedule"></section>
-    <section class="tab-panel hidden" id="tab-budget"></section>
-    <section class="tab-panel hidden" id="tab-spending"></section>
-    <section class="tab-panel hidden" id="tab-deposits"></section>
-    <section class="tab-panel hidden" id="tab-settings"></section>
-  </div>
+  <nav id="tabs" class="nav"></nav>
 
-  <script src="script.js?v=2"></script>
+  <main id="app-content">
+    <div id="tab-dashboard" class="tab-panel hidden"></div>
+    <div id="tab-bills" class="tab-panel hidden"></div>
+    <div id="tab-schedule" class="tab-panel hidden"></div>
+    <div id="tab-budget" class="tab-panel hidden"></div>
+    <div id="tab-spending" class="tab-panel hidden"></div>
+    <div id="tab-deposits" class="tab-panel hidden"></div>
+    <div id="tab-settings" class="tab-panel hidden"></div>
+  </main>
+
+  <script src="script.js"></script>
 </body>
 </html>
