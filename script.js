@@ -760,10 +760,15 @@ function renderDashboard() {
 
 function renderSchedule() {
   const container = document.getElementById('tab-schedule');
+  // Ensure we have an array to work with even if state is empty
   const items = state.schedule || [];
 
   if (items.length === 0) {
-    container.innerHTML = '<div class="empty-state"><h3>No scheduled items</h3></div>';
+    container.innerHTML = `
+      <div class="empty-state">
+        <h3>No scheduled items</h3>
+        <p>Add your first bill or paycheck to see your timeline.</p>
+      </div>`;
     return;
   }
 
@@ -782,16 +787,22 @@ function renderSchedule() {
         <tbody>`;
 
   items.forEach(item => {
+    // Fallbacks to prevent crashes if data is missing
+    const amt = typeof item.amount === 'number' ? item.amount.toFixed(2) : '0.00';
+    const status = item.status || 'Later';
+    const date = item.date || '---';
+    const desc = item.description || 'Untitled';
+
     html += `
       <tr>
-        <td data-label="Date">${item.date}</td>
-        <td data-label="Description"><strong>${item.description}</strong></td>
-        <td data-label="Amount">$${item.amount.toFixed(2)}</td>
+        <td data-label="Date">${date}</td>
+        <td data-label="Description"><strong>${desc}</strong></td>
+        <td data-label="Amount">$${amt}</td>
         <td data-label="Status">
-            <span class="status ${item.status.toLowerCase()}">${item.status}</span>
+            <span class="status ${status.toLowerCase()}">${status}</span>
         </td>
         <td data-label="Actions">
-          <button class="mini-btn" onclick="editItem('${item.id}')">Edit</button>
+          <button class="mini-btn" onclick="deleteItem('${item.id}')">Delete</button>
         </td>
       </tr>`;
   });
