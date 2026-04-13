@@ -1,0 +1,25 @@
+{
+  "name": "BudgetFlow",
+  "short_name": "BudgetFlow",
+  "description": "A clean budgeting workspace for tracking recurring bills, pay periods, spending, deposits, and cash flow.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0f172a",
+  "theme_color": "#0f172a",
+  "icons": [
+    {
+      "src": "apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "budgetflow-app-icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
