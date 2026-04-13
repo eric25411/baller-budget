@@ -43,6 +43,7 @@ let activeTab = 'dashboard';
 let scheduleSearch = '';
 let scheduleFilterMode = 'all'; 
 let currentPeriodOffset = 0; 
+let editingBillId = null; // NEW: Track what we are editing
 
 function saveState() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
@@ -83,7 +84,12 @@ function getScheduleRows() {
   state.bills.forEach(bill => {
     let current = parseISODate(bill.date);
     if (!current) return;
-    while (current <= endLimit) {
+    
+    // NEW: Stop the bill if an end date is provided
+    const billEnd = bill.endDate ? parseISODate(bill.endDate) : endLimit;
+    const actualLimit = billEnd < endLimit ? billEnd : endLimit;
+
+    while (current <= actualLimit) {
       if (current >= startLimit) {
         const dateStr = toISODate(current);
         const key = `${bill.id}_${dateStr}`;
@@ -135,24 +141,115 @@ function renderDashboard() {
   const container = document.getElementById('tab-dashboard');
   container.innerHTML = `
     <div class="panel" style="text-align:center; padding: 25px 20px;">
-        <div class="label" style="text-transform:uppercase; font-size:0.75rem; letter-spacing:1px; color:#636e72">Total Available</div>
+        <div class="label" style="text-transform:uppercase; font-size:0.75rem; letter-spacing:1px; color:#636e72">Welcome, ${state.userName}</div>
         <div class="value" style="font-size: 2.2rem; font-weight: 800; color: var(--accent); margin: 5px 0;">${formatMoney(stats.totalLeft)}</div>
         
         <div style="background: #f8f9fa; border-radius: 12px; padding: 15px; margin-top: 20px;">
             <div class="label" style="font-size: 0.7rem; color: #636e72; text-transform: uppercase;">Daily Allowance</div>
             <div style="font-size: 1.5rem; font-weight: 700; color: #2d3436;">${formatMoney(dailyAllowance)} <span style="font-size:0.8rem; font-weight:400;">/ day</span></div>
-            <div style="font-size: 0.8rem; color: #636e72; margin-top: 5px;">Based on <strong>${daysLeft} days</strong> remaining</div>
         </div>
     </div>
 
     <div class="stats">
-      <div class="stat"><div class="label">Prior</div><div class="value">${formatMoney(stats.carryOver)}</div></div>
-      <div class="stat"><div class="label">Income</div><div class="value" style="color:#2ecc71">${formatMoney(stats.pIncome)}</div></div>
-      <div class="stat"><div class="label">Outbound</div><div class="value" style="color:#e74c3c">${formatMoney(stats.pBills + stats.pSpending)}</div></div>
+      <div class="stat"><div class="label">INCOME</div><div class="value" style="color:#2ecc71">${formatMoney(stats.pIncome)}</div></div>
+      <div class="stat"><div class="label">OUTBOUND</div><div class="value" style="color:#e74c3c">${formatMoney(stats.pBills + stats.pSpending)}</div></div>
     </div>
   `;
 }
 
+function renderBills() {
+  const container = document.getElementById('tab-bills');
+  container.innerHTML = `
+    <div class="panel"><div class="panel-head"><h2>${editingBillId ? 'Edit Bill' : 'Manage Bills'}</h2></div>
+      <div class="stack">
+        <label style="font-size:0.7rem; color:#636e72">Bill Name</label>
+        <input type="text" id="billName" class="field" placeholder="Rent, Electric, etc.">
+        
+        <label style="font-size:0.7rem; color:#636e72">Amount ($)</label>
+        <input type="number" id="billAmount" class="field" placeholder="0.00">
+        
+        <label style="font-size:0.7rem; color:#636e72">Start Date</label>
+        <input type="date" id="billDate" class="field">
+        
+        <label style="font-size:0.7rem; color:#636e72">Frequency</label>
+        <select id="billFreq" class="field" onchange="document.getElementById('customDays').classList.toggle('hidden', this.value !== 'Custom')">
+          <option value="Monthly">Monthly</option>
+          <option value="Weekly">Weekly</option>
+          <option value="Bi-Weekly">Bi-Weekly</option>
+          <option value="Custom">Custom</option>
+        </select>
+        <input type="number" id="customDays" class="field hidden" placeholder="Interval (Days)">
+
+        <label style="font-size:0.7rem; color:#636e72">End Date (Optional - stops recurring)</label>
+        <input type="date" id="billEndDate" class="field">
+
+        <div style="display:flex; gap:10px;">
+            <button class="btn" style="flex:2" onclick="addBill()">${editingBillId ? 'Update Bill' : 'Save Bill'}</button>
+            ${editingBillId ? `<button class="btn" style="flex:1; background:#7f8c8d" onclick="cancelEdit()">Cancel</button>` : ''}
+        </div>
+      </div>
+    </div>
+    <div class="table-wrap"><table>
+      <tbody>${state.bills.map(b => `
+        <tr>
+          <td><strong>${b.name}</strong><br><small style="color:#95a5a6">${b.frequency}${b.endDate ? ' (Ends ' + b.endDate + ')' : ''}</small></td>
+          <td style="text-align:right;">${formatMoney(b.amount)}<br>
+            <button class="mini-btn" onclick="editBill('${b.id}')">Edit</button>
+            <button class="mini-btn danger-btn" onclick="deleteItem('bills','${b.id}')">Del</button>
+          </td>
+        </tr>`).join('')}</tbody>
+    </table></div>`;
+}
+
+// --- ACTIONS & APP START ---
+function editBill(id) {
+    const bill = state.bills.find(b => b.id === id);
+    if (!bill) return;
+    editingBillId = id;
+    renderBills(); // Re-render to show updated title and cancel button
+    
+    // Fill the inputs
+    document.getElementById('billName').value = bill.name;
+    document.getElementById('billAmount').value = bill.amount;
+    document.getElementById('billDate').value = bill.date;
+    document.getElementById('billFreq').value = bill.frequency;
+    document.getElementById('billEndDate').value = bill.endDate || '';
+    if (bill.frequency === 'Custom') {
+        const cd = document.getElementById('customDays');
+        cd.classList.remove('hidden');
+        cd.value = bill.customDays;
+    }
+}
+
+function cancelEdit() {
+    editingBillId = null;
+    renderBills();
+}
+
+function addBill() {
+  const n = document.getElementById('billName').value, 
+        a = parseFloat(document.getElementById('billAmount').value), 
+        d = document.getElementById('billDate').value, 
+        f = document.getElementById('billFreq').value, 
+        c = document.getElementById('customDays').value,
+        ed = document.getElementById('billEndDate').value;
+
+  if (!n || isNaN(a) || !d) return;
+
+  const billData = { name: n, amount: a, date: d, frequency: f, customDays: c, endDate: ed };
+
+  if (editingBillId) {
+      const idx = state.bills.findIndex(b => b.id === editingBillId);
+      if (idx !== -1) state.bills[idx] = { ...state.bills[idx], ...billData };
+      editingBillId = null;
+  } else {
+      state.bills.push({ id: makeId('bill'), ...billData });
+  }
+  
+  saveState();
+}
+
+// ... Rest of functions (renderSchedule, renderSpending, etc.) remain identical ...
 function renderSchedule() {
   const container = document.getElementById('tab-schedule');
   let rows = getScheduleRows();
@@ -193,55 +290,6 @@ function renderSchedule() {
     </table></div>`;
 }
 
-function renderBudget() {
-  const stats = calculatePeriodStats(currentPeriodOffset);
-  const startStr = stats.start.toLocaleDateString('en-US', {month:'short', day:'2-digit'});
-  const endStr = stats.end.toLocaleDateString('en-US', {month:'short', day:'2-digit'});
-  const container = document.getElementById('tab-budget');
-  container.innerHTML = `
-    <div class="panel">
-      <div class="panel-head"><h2>Budget Analysis</h2></div>
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-        <button class="tab-btn" onclick="currentPeriodOffset--;renderBudget()">◀</button>
-        <div style="text-align: center;">
-          <strong style="display: block; font-size: 1.1rem;">${startStr} - ${endStr}</strong>
-          <button class="mini-btn" style="margin-top:5px; font-size:0.7rem;" onclick="currentPeriodOffset=getTodayOffset();renderBudget()">Today</button>
-        </div>
-        <button class="tab-btn" onclick="currentPeriodOffset++;renderBudget()">▶</button>
-      </div>
-      <div class="stack" style="gap:12px">
-        <div style="display:flex; justify-content:space-between; color:#636e72"><span>Prior Carryover</span><strong>${formatMoney(stats.carryOver)}</strong></div>
-        <div style="display:flex; justify-content:space-between"><span>New Income</span><strong>${formatMoney(stats.pIncome)}</strong></div>
-        <div style="display:flex; justify-content:space-between"><span>Scheduled Bills</span><strong style="color:#e74c3c">${formatMoney(stats.pBills)}</strong></div>
-        <div style="display:flex; justify-content:space-between"><span>Misc Spending</span><strong style="color:#e74c3c">${formatMoney(stats.pSpending)}</strong></div>
-        <hr style="border:0; border-top:1px solid #eee; margin:5px 0;">
-        <div style="display:flex; justify-content:space-between; font-size:1.2rem; font-weight:bold;">
-          <span>Net Remaining</span><span style="color:#3498db">${formatMoney(stats.totalLeft)}</span>
-        </div>
-      </div>
-    </div>`;
-}
-
-function renderBills() {
-  const container = document.getElementById('tab-bills');
-  container.innerHTML = `
-    <div class="panel"><div class="panel-head"><h2>Manage Bills</h2></div>
-      <div class="stack">
-        <input type="text" id="billName" class="field" placeholder="Name (e.g. Rent)">
-        <input type="number" id="billAmount" class="field" placeholder="Amount ($)">
-        <input type="date" id="billDate" class="field">
-        <select id="billFreq" class="field" onchange="document.getElementById('customDays').classList.toggle('hidden', this.value !== 'Custom')">
-          <option value="Monthly">Monthly</option><option value="Weekly">Weekly</option><option value="Bi-Weekly">Bi-Weekly</option><option value="Custom">Custom</option>
-        </select>
-        <input type="number" id="customDays" class="field hidden" placeholder="Days">
-        <button class="btn" onclick="addBill()">Save Bill</button>
-      </div>
-    </div>
-    <div class="table-wrap"><table>
-      <tbody>${state.bills.map(b => `<tr><td>${b.name}</td><td>${formatMoney(b.amount)}</td><td><button class="mini-btn danger-btn" onclick="deleteItem('bills','${b.id}')">Del</button></td></tr>`).join('')}</tbody>
-    </table></div>`;
-}
-
 function renderSpending() {
   const container = document.getElementById('tab-spending');
   const today = toISODate(new Date());
@@ -272,6 +320,35 @@ function renderDeposits() {
     </table></div>`;
 }
 
+function renderBudget() {
+  const stats = calculatePeriodStats(currentPeriodOffset);
+  const startStr = stats.start.toLocaleDateString('en-US', {month:'short', day:'2-digit'});
+  const endStr = stats.end.toLocaleDateString('en-US', {month:'short', day:'2-digit'});
+  const container = document.getElementById('tab-budget');
+  container.innerHTML = `
+    <div class="panel">
+      <div class="panel-head"><h2>Budget Analysis</h2></div>
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+        <button class="tab-btn" onclick="currentPeriodOffset--;renderBudget()">◀</button>
+        <div style="text-align: center;">
+          <strong style="display: block; font-size: 1.1rem;">${startStr} - ${endStr}</strong>
+          <button class="mini-btn" style="margin-top:5px; font-size:0.7rem;" onclick="currentPeriodOffset=getTodayOffset();renderBudget()">Today</button>
+        </div>
+        <button class="tab-btn" onclick="currentPeriodOffset++;renderBudget()">▶</button>
+      </div>
+      <div class="stack" style="gap:12px">
+        <div style="display:flex; justify-content:space-between; color:#636e72"><span>Prior Carryover</span><strong>${formatMoney(stats.carryOver)}</strong></div>
+        <div style="display:flex; justify-content:space-between"><span>New Income</span><strong>${formatMoney(stats.pIncome)}</strong></div>
+        <div style="display:flex; justify-content:space-between"><span>Scheduled Bills</span><strong style="color:#e74c3c">${formatMoney(stats.pBills)}</strong></div>
+        <div style="display:flex; justify-content:space-between"><span>Misc Spending</span><strong style="color:#e74c3c">${formatMoney(stats.pSpending)}</strong></div>
+        <hr style="border:0; border-top:1px solid #eee; margin:5px 0;">
+        <div style="display:flex; justify-content:space-between; font-size:1.2rem; font-weight:bold;">
+          <span>Net Remaining</span><span style="color:#3498db">${formatMoney(stats.totalLeft)}</span>
+        </div>
+      </div>
+    </div>`;
+}
+
 function renderSettings() {
   const container = document.getElementById('tab-settings');
   container.innerHTML = `
@@ -294,15 +371,8 @@ function renderSettings() {
     </div>`;
 }
 
-// --- ACTIONS & APP START ---
 function togglePaid(key) { state.scheduleMeta[key] = { paid: !state.scheduleMeta[key]?.paid }; saveState(); }
 function deleteItem(coll, id) { state[coll] = state[coll].filter(i => i.id !== id); saveState(); }
-function addBill() {
-  const n = document.getElementById('billName').value, a = parseFloat(document.getElementById('billAmount').value), d = document.getElementById('billDate').value, f = document.getElementById('billFreq').value, c = document.getElementById('customDays').value;
-  if (!n || isNaN(a) || !d) return;
-  state.bills.push({ id: makeId('bill'), name: n, amount: a, date: d, frequency: f, customDays: c });
-  saveState();
-}
 function addSpending() {
   const d = document.getElementById('spDesc').value, a = parseFloat(document.getElementById('spAmt').value), dt = document.getElementById('spDate').value;
   if (!d || isNaN(a) || !dt) return;
@@ -315,12 +385,10 @@ function addDeposit() {
   state.deposits.push({ id: makeId('dp'), description: d, amount: a, date: dt });
   saveState();
 }
-
 function exportData() {
   const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(state));
   const dl = document.createElement('a'); dl.setAttribute("href", dataStr); dl.setAttribute("download", `budget_backup_${toISODate(new Date())}.json`); dl.click();
 }
-
 function importData(event) {
     const file = event.target.files[0];
     if (!file) return;
