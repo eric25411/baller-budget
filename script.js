@@ -66,7 +66,7 @@ function handleImport(event) {
   reader.onload = function(e) {
     try {
       const parsed = JSON.parse(e.target.result);
-      if (parsed && parsed.bills) { // Basic safety check
+      if (parsed && parsed.bills) { 
         state = parsed;
         saveState();
         alert('Data imported successfully!');
@@ -139,7 +139,7 @@ function renderBills() {
       <div class="panel-body stack">
         <input type="text" id="billName" class="field" placeholder="Name">
         <input type="number" id="billAmount" class="field" placeholder="Amount">
-        <input type="date" id="billDate" class="field">
+        <input type="date" id="billDate" class="field" style="width: 100%; box-sizing: border-box;">
         <select id="billFreq" class="field" onchange="toggleCustomFreq(this.value)">
           <option value="Monthly">Monthly</option>
           <option value="Weekly">Weekly</option>
@@ -179,7 +179,7 @@ function renderSpending() {
     <div class="panel-body stack">
       <input type="text" id="spDesc" class="field" placeholder="Description">
       <input type="number" id="spAmt" class="field" placeholder="Amount">
-      <input type="date" id="spDate" class="field">
+      <input type="date" id="spDate" class="field" style="width: 100%; box-sizing: border-box;">
       <button class="btn" onclick="addSpending()">Add Expense</button>
     </div></div>
     <div class="table-wrap"><table><thead><tr><th>Date</th><th>Description</th><th>Amount</th><th>Action</th></tr></thead><tbody>
@@ -195,7 +195,7 @@ function renderDeposits() {
     <div class="panel-body stack">
       <input type="text" id="dpDesc" class="field" placeholder="Source">
       <input type="number" id="dpAmt" class="field" placeholder="Amount">
-      <input type="date" id="dpDate" class="field">
+      <input type="date" id="dpDate" class="field" style="width: 100%; box-sizing: border-box;">
       <button class="btn" onclick="addDeposit()">Add Deposit</button>
     </div></div>
     <div class="table-wrap"><table><thead><tr><th>Date</th><th>Source</th><th>Amount</th><th>Action</th></tr></thead><tbody>
@@ -238,7 +238,7 @@ function renderSettings() {
         
         <div style="margin: 10px 0;">
           <label style="font-weight: bold; display: block; margin-bottom: 5px;">Import Backup</label>
-          <input type="file" id="importFile" accept=".json" onchange="handleImport(event)" class="field" style="padding: 10px 5px;">
+          <input type="file" id="importFile" accept=".json" onchange="handleImport(event)" class="field" style="padding: 10px 5px; width: 100%; box-sizing: border-box;">
         </div>
 
         <button class="danger-btn" onclick="if(confirm('Are you absolutely sure? This will wipe all bills, income, and history.')){state=clone(defaultData);saveState()}" style="margin-top:20px">Wipe All Data</button>
