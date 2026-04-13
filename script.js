@@ -1,130 +1,139 @@
-// --- INITIAL STATE & STORAGE ---
-const initialState = {
+const STORAGE_KEY = 'budgetflow-v1';
+
+const TABS = [
+  { id: 'dashboard', label: 'Dashboard' },
+  { id: 'bills', label: 'Bills' },
+  { id: 'schedule', label: 'Schedule' },
+  { id: 'budget', label: 'Budget Tracker' },
+  { id: 'spending', label: 'Other Spending' },
+  { id: 'deposits', label: 'Deposits' },
+  { id: 'settings', label: 'Settings' },
+];
+
+// --- HELPERS ---
+function clone(obj) { return JSON.parse(JSON.stringify(obj)); }
+function makeId(prefix) { return prefix + '-' + Math.random().toString(36).slice(2, 8) + '-' + Date.now().toString(36); }
+
+// --- STATE ---
+const defaultData = {
+  userName: 'Baller',
   bills: [],
-  schedule: [],
-  budget: [],
+  spending: [],
   deposits: [],
-  settings: { currency: '$', userName: 'User' }
+  budgetPeriods: []
 };
 
-let state = JSON.parse(localStorage.getItem('budgetFlowState')) || initialState;
+let state = JSON.parse(localStorage.getItem(STORAGE_KEY)) || clone(defaultData);
+let activeTab = 'dashboard';
 
 function saveState() {
-  localStorage.setItem('budgetFlowState', JSON.stringify(state));
-  renderAll();
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
 }
 
-// --- TAB SWITCHING ---
-function initTabs() {
-  const tabs = ['dashboard', 'bills', 'schedule', 'budget', 'deposits', 'settings'];
-  const nav = document.getElementById('tabs');
-  
-  nav.innerHTML = tabs.map(tab => `
-    <button class="tab-btn ${tab === 'dashboard' ? 'active' : ''}" 
-            onclick="switchTab('${tab}')">
-      ${tab.charAt(0).toUpperCase() + tab.slice(1)}
+// --- RENDERING ---
+
+function renderTabs() {
+  const container = document.getElementById('tabs');
+  container.innerHTML = TABS.map(t => `
+    <button class="tab-btn ${activeTab === t.id ? 'active' : ''}" onclick="setTab('${t.id}')">
+      ${t.label}
     </button>
   `).join('');
 }
 
-function switchTab(tabId) {
-  document.querySelectorAll('.tab-panel').forEach(panel => {
-    panel.classList.add('hidden');
-  });
-  document.getElementById(`tab-${tabId}`).classList.remove('hidden');
-  
-  document.querySelectorAll('.tab-btn').forEach(btn => {
-    btn.classList.toggle('active', btn.innerText.toLowerCase() === tabId);
-  });
+function setTab(id) {
+  activeTab = id;
+  renderTabs();
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.add('hidden'));
+  const target = document.getElementById(`tab-${id}`);
+  if (target) target.classList.remove('hidden');
 }
 
-// --- RENDER FUNCTIONS ---
+// Optimized Schedule Render (Mobile Friendly)
 function renderSchedule() {
   const container = document.getElementById('tab-schedule');
   const items = state.schedule || [];
 
   if (items.length === 0) {
-    container.innerHTML = `
-      <div class="empty-state">
-        <h3>No scheduled items</h3>
-        <p>Add your first bill or paycheck to see your timeline.</p>
-        <button class="btn" onclick="switchTab('bills')">Go to Bills</button>
-      </div>`;
+    container.innerHTML = '<div class="panel-body"><div class="empty-state"><h3>Schedule is empty</h3><p>Add bills to see them here.</p></div></div>';
     return;
   }
 
   let html = `
-    <div class="panel-head">
-        <h2>Payment Schedule</h2>
-        <p>Upcoming cash flow and obligations</p>
-    </div>
+    <div class="panel-head"><h2>Payment Schedule</h2></div>
     <div class="table-wrap">
       <table>
         <thead>
-          <tr>
-            <th>Date</th>
-            <th>Description</th>
-            <th>Amount</th>
-            <th>Status</th>
-            <th>Actions</th>
-          </tr>
+          <tr><th>Date</th><th>Description</th><th>Amount</th><th>Status</th><th>Actions</th></tr>
         </thead>
         <tbody>`;
 
   items.forEach(item => {
-    const amt = typeof item.amount === 'number' ? item.amount.toFixed(2) : '0.00';
-    const status = item.status || 'Later';
-
     html += `
       <tr>
-        <td data-label="Date">${item.date || '---'}</td>
-        <td data-label="Description"><strong>${item.description || 'Untitled'}</strong></td>
-        <td data-label="Amount">$${amt}</td>
-        <td data-label="Status">
-            <span class="status ${status.toLowerCase()}">${status}</span>
-        </td>
-        <td data-label="Actions">
-          <button class="mini-btn danger-btn" onclick="deleteScheduleItem('${item.id}')">Delete</button>
-        </td>
+        <td data-label="Date">${item.date || ''}</td>
+        <td data-label="Description"><strong>${item.description || ''}</strong></td>
+        <td data-label="Amount">$${(item.amount || 0).toFixed(2)}</td>
+        <td data-label="Status"><span class="status ${(item.status || '').toLowerCase()}">${item.status || ''}</span></td>
+        <td data-label="Actions"><button class="mini-btn danger-btn" onclick="deleteItem('schedule', '${item.id}')">Delete</button></td>
       </tr>`;
   });
-
   html += `</tbody></table></div>`;
   container.innerHTML = html;
 }
 
-// Placeholder for other renders to prevent errors
-function renderDashboard() { document.getElementById('tab-dashboard').innerHTML = '<div class="panel-body"><h2>Dashboard</h2><p>Welcome back!</p></div>'; }
-function renderBills() { document.getElementById('tab-bills').innerHTML = '<div class="panel-body"><h2>Bills</h2></div>'; }
-function renderBudget() { document.getElementById('tab-budget').innerHTML = '<div class="panel-body"><h2>Budget Tracker</h2></div>'; }
+// Updated Bills Render (Mobile Friendly)
+function renderBills() {
+  const container = document.getElementById('tab-bills');
+  let html = `
+    <div class="panel-head"><h2>Recurring Bills</h2></div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Name</th><th>Amount</th><th>Due Day</th><th>Category</th><th>Actions</th></tr>
+        </thead>
+        <tbody>`;
+
+  (state.bills || []).forEach(bill => {
+    html += `
+      <tr>
+        <td data-label="Name"><strong>${bill.name}</strong></td>
+        <td data-label="Amount">$${(bill.amount || 0).toFixed(2)}</td>
+        <td data-label="Due Day">Day ${bill.dueDate || ''}</td>
+        <td data-label="Category">${bill.category || ''}</td>
+        <td data-label="Actions"><button class="mini-btn danger-btn" onclick="deleteItem('bills', '${bill.id}')">Delete</button></td>
+      </tr>`;
+  });
+  html += `</tbody></table></div>`;
+  container.innerHTML = html;
+}
+
+// Generic Delete Helper
+function deleteItem(collection, id) {
+  state[collection] = state[collection].filter(i => i.id !== id);
+  saveState();
+  renderApp();
+}
+
+// Logic placeholders for remaining tabs (Restore your original logic here)
+function renderDashboard() { document.getElementById('tab-dashboard').innerHTML = '<div class="panel-body"><h2>Welcome, ' + state.userName + '</h2><p>Select a tab to manage your flow.</p></div>'; }
+function renderBudget() { document.getElementById('tab-budget').innerHTML = '<div class="panel-body"><h2>Budget Tracker</h2><p>Tracking enabled.</p></div>'; }
+function renderSpending() { document.getElementById('tab-spending').innerHTML = '<div class="panel-body"><h2>Other Spending</h2></div>'; }
 function renderDeposits() { document.getElementById('tab-deposits').innerHTML = '<div class="panel-body"><h2>Deposits</h2></div>'; }
 function renderSettings() { document.getElementById('tab-settings').innerHTML = '<div class="panel-body"><h2>Settings</h2></div>'; }
 
-function deleteScheduleItem(id) {
-    state.schedule = state.schedule.filter(item => item.id !== id);
-    saveState();
-}
-
-function renderAll() {
+function renderApp() {
+  renderTabs();
   renderDashboard();
   renderBills();
   renderSchedule();
   renderBudget();
+  renderSpending();
   renderDeposits();
   renderSettings();
+  setTab(activeTab);
 }
 
-// --- INITIALIZE ---
 window.onload = () => {
-  initTabs();
-  renderAll();
-  
-  // Seed sample data if empty so you can see the cards!
-  if (state.schedule.length === 0) {
-      state.schedule = [
-          { id: '1', date: '2024-05-01', description: 'Rent Payment', amount: 1200, status: 'Soon' },
-          { id: '2', date: '2024-05-05', description: 'Paycheck', amount: 2500, status: 'Paid' }
-      ];
-      saveState();
-  }
+  renderApp();
 };
