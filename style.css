@@ -391,6 +391,7 @@ tbody tr:hover {
   line-height: 1.6;
   font-size: 14px;
 }
+
 .empty-state {
   display: grid;
   gap: 12px;
@@ -558,6 +559,7 @@ tbody tr:hover {
   letter-spacing: 0.08em;
   margin: 6px 0 10px;
 }
+
 .settings-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -600,6 +602,11 @@ tbody tr:hover {
   margin-top: 4px;
 }
 
+.export-grid {
+  display: grid;
+  gap: 10px;
+}
+
 #importFile {
   display: none;
 }
@@ -625,12 +632,12 @@ tbody tr:hover {
     padding-right: 16px;
   }
 
- .stats,
-.grid-two,
-.summary-grid,
-.settings-grid {
-  grid-template-columns: 1fr;
-}
+  .stats,
+  .grid-two,
+  .summary-grid,
+  .settings-grid {
+    grid-template-columns: 1fr;
+  }
 
   .next-item {
     grid-template-columns: 1fr;
