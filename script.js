@@ -10,6 +10,11 @@ const TABS = [
   { id: 'settings', label: 'Settings' },
 ];
 
+// --- BUDGET PERIOD CONFIG ---
+let anchorDate = new Date('2026-03-02'); // Starting point for cycles
+let periodDays = 14; 
+let currentPeriodOffset = 0; // 0 is the cycle containing the anchor/current date
+
 // --- CORE UTILS ---
 function clone(obj) { return JSON.parse(JSON.stringify(obj)); }
 function makeId(prefix) { return prefix + '-' + Math.random().toString(36).slice(2, 8) + '-' + Date.now().toString(36); }
@@ -24,7 +29,7 @@ function addDays(date, days) { const d = new Date(date); d.setDate(d.getDate() +
 function formatMoney(v) { return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(v || 0); }
 
 // --- STATE MANAGEMENT ---
-let defaultData = {
+const defaultData = {
   settings: { openingBalance: 0, scheduleMonthsForward: 12 },
   userName: 'Baller',
   bills: [],
@@ -48,7 +53,21 @@ function setTab(id) {
   renderApp();
 }
 
-// --- DATA MANAGEMENT HELPERS ---
+// --- PERIOD CALCULATIONS ---
+function getPeriodDates() {
+    let start = new Date(anchorDate);
+    start.setDate(start.getDate() + (currentPeriodOffset * periodDays));
+    let end = new Date(start);
+    end.setDate(end.getDate() + (periodDays - 1));
+    return { start, end };
+}
+
+function changePeriod(direction) {
+    currentPeriodOffset += direction;
+    renderBudget();
+}
+
+// --- DATA MANAGEMENT ---
 function exportData() {
   const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(state, null, 2));
   const downloadAnchorNode = document.createElement('a');
@@ -76,7 +95,7 @@ function handleImport(event) {
   reader.readAsText(file);
 }
 
-// --- DYNAMIC ENGINE ---
+// --- SCHEDULE ENGINE ---
 function getScheduleRows() {
   const rows = [];
   const start = new Date();
@@ -129,7 +148,7 @@ function renderBills() {
   container.innerHTML = `
     <div class="panel"><div class="panel-head"><h2>Add New Bill</h2></div>
       <div class="panel-body stack">
-        <input type="text" id="billName" class="field" placeholder="Bill Name (Rent, Electric, etc)">
+        <input type="text" id="billName" class="field" placeholder="Bill Name">
         <input type="number" id="billAmount" class="field" placeholder="Amount ($)">
         <input type="date" id="billDate" class="field">
         <select id="billFreq" class="field" onchange="toggleCustomFreq(this.value)">
@@ -138,12 +157,11 @@ function renderBills() {
           <option value="Bi-Weekly">Bi-Weekly</option>
           <option value="Custom">Custom Days</option>
         </select>
-        <input type="number" id="customDays" class="field hidden" placeholder="How many days?">
+        <input type="number" id="customDays" class="field hidden" placeholder="Days">
         <button class="btn" onclick="addBill()">Save Bill</button>
       </div>
     </div>
-    <div class="panel"><div class="panel-head"><h2>Active Bills</h2></div>
-    <div class="table-wrap"><table>
+    <div class="panel"><div class="table-wrap"><table>
       <thead><tr><th>Name</th><th>Amt</th><th>Freq</th><th>Action</th></tr></thead>
       <tbody>${state.bills.map(b => `<tr><td>${b.name}</td><td>${formatMoney(b.amount)}</td><td>${b.frequency}</td>
       <td><button class="mini-btn danger-btn" onclick="deleteItem('bills','${b.id}')">Del</button></td></tr>`).join('')}</tbody>
@@ -156,10 +174,10 @@ function renderSchedule() {
   container.innerHTML = `
     <div class="panel"><div class="panel-head"><h2>Payment Schedule</h2></div>
       <div class="stack">
-        <input type="text" class="field" placeholder="Search bills..." oninput="updateSearch(this.value)">
+        <input type="text" class="field" placeholder="Search..." oninput="updateSearch(this.value)">
         <label style="display:flex; align-items:center; gap:10px; margin:10px 0;">
           <input type="checkbox" ${filter30Days ? 'checked' : ''} onchange="toggle30DayFilter(this.checked)"> 
-          Show next 30 days only
+          Next 30 days only
         </label>
       </div>
     </div>
@@ -174,7 +192,7 @@ function renderSchedule() {
 function renderSpending() {
   const container = document.getElementById('tab-spending');
   container.innerHTML = `
-    <div class="panel"><div class="panel-head"><h2>Log Extra Spending</h2></div>
+    <div class="panel"><div class="panel-head"><h2>Other Spending</h2></div>
       <div class="panel-body stack">
         <input type="text" id="spDesc" class="field" placeholder="Description">
         <input type="number" id="spAmt" class="field" placeholder="Amount ($)">
@@ -183,7 +201,6 @@ function renderSpending() {
       </div>
     </div>
     <div class="panel"><div class="table-wrap"><table>
-      <thead><tr><th>Date</th><th>Desc</th><th>Amt</th><th>Action</th></tr></thead>
       <tbody>${state.spending.map(s => `<tr><td>${s.date}</td><td>${s.description}</td><td>${formatMoney(s.amount)}</td>
       <td><button class="mini-btn danger-btn" onclick="deleteItem('spending','${s.id}')">Del</button></td></tr>`).join('')}</tbody>
     </table></div></div>`;
@@ -192,7 +209,7 @@ function renderSpending() {
 function renderDeposits() {
   const container = document.getElementById('tab-deposits');
   container.innerHTML = `
-    <div class="panel"><div class="panel-head"><h2>Log Income</h2></div>
+    <div class="panel"><div class="panel-head"><h2>Income</h2></div>
       <div class="panel-body stack">
         <input type="text" id="dpDesc" class="field" placeholder="Source">
         <input type="number" id="dpAmt" class="field" placeholder="Amount ($)">
@@ -201,47 +218,74 @@ function renderDeposits() {
       </div>
     </div>
     <div class="panel"><div class="table-wrap"><table>
-      <thead><tr><th>Date</th><th>Source</th><th>Amt</th><th>Action</th></tr></thead>
       <tbody>${state.deposits.map(d => `<tr><td>${d.date}</td><td>${d.description}</td><td>${formatMoney(d.amount)}</td>
       <td><button class="mini-btn danger-btn" onclick="deleteItem('deposits','${d.id}')">Del</button></td></tr>`).join('')}</tbody>
     </table></div></div>`;
 }
 
 function renderBudget() {
-  const inc = state.deposits.reduce((s, d) => s + d.amount, 0);
-  const bil = state.bills.reduce((s, b) => s + b.amount, 0);
-  const spd = state.spending.reduce((s, sp) => s + sp.amount, 0);
+  const { start, end } = getPeriodDates();
+  const startStr = start.toLocaleDateString('en-US', {month:'short', day:'2-digit'});
+  const endStr = end.toLocaleDateString('en-US', {month:'short', day:'2-digit'});
+
+  // Math for Period
+  const periodIncome = state.deposits.filter(d => {
+    let dt = parseISODate(d.date);
+    return dt >= start && dt <= end;
+  }).reduce((s, d) => s + d.amount, 0);
+
+  const periodSpending = state.spending.filter(sp => {
+    let dt = parseISODate(sp.date);
+    return dt >= start && dt <= end;
+  }).reduce((s, sp) => s + sp.amount, 0);
+
+  // Get Bills scheduled within this period
+  const periodBills = getScheduleRows().filter(r => {
+    let dt = parseISODate(r.date);
+    return dt >= start && dt <= end;
+  }).reduce((s, r) => s + r.amount, 0);
+
   const container = document.getElementById('tab-budget');
   container.innerHTML = `
-    <div class="panel"><div class="panel-head"><h2>Analysis</h2></div>
-    <div class="summary-grid">
-      <div class="summary-tile"><div class="label">Total Income</div><div class="value">${formatMoney(inc)}</div></div>
-      <div class="summary-tile"><div class="label">Fixed Bills</div><div class="value">${formatMoney(bil)}</div></div>
-      <div class="summary-tile"><div class="label">Other Spending</div><div class="value">${formatMoney(spd)}</div></div>
-      <div class="summary-tile" style="border-top: 2px solid #3498db; padding-top:15px;">
-        <div class="label">Disposable Income</div><div class="value" style="color:#3498db">${formatMoney(inc - (bil + spd))}</div>
+    <div class="panel">
+      <div class="panel-head"><h2>Budget Tracker</h2></div>
+      
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px;">
+        <button class="tab-btn" onclick="changePeriod(-1)">◀</button>
+        <div style="text-align: center;">
+          <strong style="display: block; font-size: 1.1rem;">${startStr} - ${endStr}</strong>
+          <span style="font-size: 0.8rem; color: #636e72;">14-Day Period</span>
+        </div>
+        <button class="tab-btn" onclick="changePeriod(1)">▶</button>
       </div>
-    </div></div>`;
+
+      <div class="stack" style="gap:15px">
+        <div style="display:flex; justify-content:space-between"><span>Period Income</span><strong>${formatMoney(periodIncome)}</strong></div>
+        <div style="display:flex; justify-content:space-between"><span>Scheduled Bills</span><strong style="color:#e74c3c">${formatMoney(periodBills)}</strong></div>
+        <div style="display:flex; justify-content:space-between"><span>Other Spending</span><strong style="color:#e74c3c">${formatMoney(periodSpending)}</strong></div>
+        <hr style="border:0; border-top:1px solid #eee; margin:10px 0;">
+        <div style="display:flex; justify-content:space-between; font-size:1.2rem; font-weight:bold;">
+          <span>Leftover</span><span style="color:#3498db">${formatMoney(periodIncome - periodBills - periodSpending)}</span>
+        </div>
+      </div>
+    </div>`;
 }
 
 function renderSettings() {
   const container = document.getElementById('tab-settings');
   container.innerHTML = `
-    <div class="panel"><div class="panel-head"><h2>Profile Settings</h2></div>
-      <div class="panel-body stack">
-        <label>User Display Name</label>
+    <div class="panel"><div class="panel-head"><h2>Settings</h2></div>
+      <div class="stack">
+        <label>User Name</label>
         <input type="text" class="field" value="${state.userName}" onchange="state.userName=this.value;saveState()">
       </div>
     </div>
-    
     <div class="panel">
       <div class="panel-head"><h2>Data Management</h2></div>
-      <div class="panel-body stack">
-        <button class="btn" style="background:#34495e; margin-bottom:15px;" onclick="exportData()">Download Backup (JSON)</button>
-        <label style="font-weight: bold; margin-bottom: 5px; display: block;">Restore from Backup</label>
+      <div class="stack">
+        <button class="btn" style="background:#34495e; margin-bottom:15px;" onclick="exportData()">Download Backup</button>
         <input type="file" id="importFile" accept=".json" onchange="handleImport(event)" class="field">
-        <hr style="margin: 20px 0; border: 0; border-top: 1px solid #eee;">
-        <button class="danger-btn" onclick="if(confirm('Wipe all data?')){state=clone(defaultData);saveState()}">Factory Reset App</button>
+        <button class="danger-btn" style="margin-top:20px" onclick="if(confirm('Wipe everything?')){state=clone(defaultData);saveState()}">Factory Reset</button>
       </div>
     </div>`;
 }
@@ -251,7 +295,6 @@ function toggleCustomFreq(v) { document.getElementById('customDays').classList.t
 function updateSearch(v) { scheduleSearch = v; renderSchedule(); }
 function toggle30DayFilter(v) { filter30Days = v; renderSchedule(); }
 function togglePaid(key) { 
-  if(!state.scheduleMeta) state.scheduleMeta = {};
   state.scheduleMeta[key] = { paid: !state.scheduleMeta[key]?.paid }; 
   saveState(); 
 }
