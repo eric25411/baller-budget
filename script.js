@@ -24,7 +24,7 @@ function addDays(date, days) { const d = new Date(date); d.setDate(d.getDate() +
 function formatMoney(v) { return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(v || 0); }
 
 // --- STATE MANAGEMENT ---
-const defaultData = {
+let defaultData = {
   settings: { openingBalance: 0, scheduleMonthsForward: 12 },
   userName: 'Baller',
   bills: [],
@@ -66,16 +66,12 @@ function handleImport(event) {
   reader.onload = function(e) {
     try {
       const parsed = JSON.parse(e.target.result);
-      if (parsed && parsed.bills) { 
+      if (parsed) { 
         state = parsed;
         saveState();
         alert('Data imported successfully!');
-      } else {
-        alert('Invalid backup format.');
       }
-    } catch (err) {
-      alert('Could not read the backup file.');
-    }
+    } catch (err) { alert('Import failed.'); }
   };
   reader.readAsText(file);
 }
@@ -90,14 +86,11 @@ function getScheduleRows() {
   state.bills.forEach(bill => {
     let current = parseISODate(bill.date);
     if (!current) return;
-
     while (current <= end) {
       if (filter30Days && current > thirtyDaysOut) break; 
-
       const dateStr = toISODate(current);
       const key = `${bill.id}_${dateStr}`;
       const meta = state.scheduleMeta[key] || {};
-      
       rows.push({
         id: key,
         description: bill.name,
@@ -105,7 +98,6 @@ function getScheduleRows() {
         date: dateStr,
         status: meta.paid ? 'Paid' : (current < new Date() ? 'Overdue' : 'Upcoming')
       });
-
       if (bill.frequency === 'Weekly') current = addDays(current, 7);
       else if (bill.frequency === 'Bi-Weekly') current = addDays(current, 14);
       else if (bill.frequency === 'Monthly') { current.setMonth(current.getMonth() + 1); }
@@ -125,83 +117,94 @@ function renderDashboard() {
   const container = document.getElementById('tab-dashboard');
   container.innerHTML = `
     <div class="stats">
-      <div class="stat"><div class="label">Total Income</div><div class="value" style="color:var(--good)">${formatMoney(income)}</div></div>
-      <div class="stat"><div class="label">Outbound</div><div class="value" style="color:var(--bad)">${formatMoney(bills + spending)}</div></div>
-      <div class="stat"><div class="label">Net Cash</div><div class="value" style="color:var(--accent)">${formatMoney(income - (bills + spending))}</div></div>
+      <div class="stat"><div class="label">Income</div><div class="value" style="color:#2ecc71">${formatMoney(income)}</div></div>
+      <div class="stat"><div class="label">Outbound</div><div class="value" style="color:#e74c3c">${formatMoney(bills + spending)}</div></div>
+      <div class="stat"><div class="label">Net</div><div class="value" style="color:#3498db">${formatMoney(income - (bills + spending))}</div></div>
     </div>
-    <div class="panel"><div class="panel-body"><h3>Welcome back, ${state.userName}</h3></div></div>`;
+    <div class="panel"><div class="panel-body"><h3>Welcome, ${state.userName}</h3></div></div>`;
 }
 
 function renderBills() {
   const container = document.getElementById('tab-bills');
   container.innerHTML = `
-    <div class="panel"><div class="panel-head"><h2>Manage Bills</h2></div>
+    <div class="panel"><div class="panel-head"><h2>Add New Bill</h2></div>
       <div class="panel-body stack">
-        <input type="text" id="billName" class="field" placeholder="Name">
-        <input type="number" id="billAmount" class="field" placeholder="Amount">
-        <input type="date" id="billDate" class="field" style="width: 100%; box-sizing: border-box;">
+        <input type="text" id="billName" class="field" placeholder="Bill Name (Rent, Electric, etc)">
+        <input type="number" id="billAmount" class="field" placeholder="Amount ($)">
+        <input type="date" id="billDate" class="field">
         <select id="billFreq" class="field" onchange="toggleCustomFreq(this.value)">
           <option value="Monthly">Monthly</option>
           <option value="Weekly">Weekly</option>
           <option value="Bi-Weekly">Bi-Weekly</option>
           <option value="Custom">Custom Days</option>
         </select>
-        <input type="number" id="customDays" class="field hidden" placeholder="Every X Days">
-        <button class="btn" onclick="addBill()">Add Bill</button>
+        <input type="number" id="customDays" class="field hidden" placeholder="How many days?">
+        <button class="btn" onclick="addBill()">Save Bill</button>
       </div>
     </div>
-    <div class="table-wrap"><table><thead><tr><th>Name</th><th>Amt</th><th>Freq</th><th>Actions</th></tr></thead><tbody>
-    ${state.bills.map(b => `<tr><td data-label="Name">${b.name}</td><td data-label="Amt">${formatMoney(b.amount)}</td><td data-label="Freq">${b.frequency}</td>
-    <td data-label="Actions"><button class="mini-btn danger-btn" onclick="deleteItem('bills','${b.id}')">Delete</button></td></tr>`).join('')}
-    </tbody></table></div>`;
+    <div class="panel"><div class="panel-head"><h2>Active Bills</h2></div>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Name</th><th>Amt</th><th>Freq</th><th>Action</th></tr></thead>
+      <tbody>${state.bills.map(b => `<tr><td>${b.name}</td><td>${formatMoney(b.amount)}</td><td>${b.frequency}</td>
+      <td><button class="mini-btn danger-btn" onclick="deleteItem('bills','${b.id}')">Del</button></td></tr>`).join('')}</tbody>
+    </table></div></div>`;
 }
 
 function renderSchedule() {
   const container = document.getElementById('tab-schedule');
   const rows = getScheduleRows().filter(r => r.description.toLowerCase().includes(scheduleSearch.toLowerCase()));
   container.innerHTML = `
-    <div class="panel"><div class="panel-head"><h2>Schedule</h2>
-      <div class="stack" style="gap:10px">
-        <input type="text" class="field" placeholder="Search..." oninput="updateSearch(this.value)">
-        <label><input type="checkbox" ${filter30Days ? 'checked' : ''} onchange="toggle30DayFilter(this.checked)"> Next 30 Days Only</label>
+    <div class="panel"><div class="panel-head"><h2>Payment Schedule</h2></div>
+      <div class="stack">
+        <input type="text" class="field" placeholder="Search bills..." oninput="updateSearch(this.value)">
+        <label style="display:flex; align-items:center; gap:10px; margin:10px 0;">
+          <input type="checkbox" ${filter30Days ? 'checked' : ''} onchange="toggle30DayFilter(this.checked)"> 
+          Show next 30 days only
+        </label>
       </div>
-    </div></div>
-    <div class="table-wrap"><table><thead><tr><th>Date</th><th>Bill</th><th>Amt</th><th>Status</th><th>Action</th></tr></thead><tbody>
-    ${rows.map(r => `<tr><td data-label="Date">${r.date}</td><td data-label="Bill">${r.description}</td><td data-label="Amt">${formatMoney(r.amount)}</td>
-    <td data-label="Status">${r.status}</td><td><button class="mini-btn" onclick="togglePaid('${r.id}')">${r.status === 'Paid' ? 'Unpay' : 'Pay'}</button></td></tr>`).join('')}
-    </tbody></table></div>`;
+    </div>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Date</th><th>Bill</th><th>Amt</th><th>Status</th><th>Action</th></tr></thead>
+      <tbody>${rows.map(r => `<tr><td>${r.date}</td><td>${r.description}</td><td>${formatMoney(r.amount)}</td>
+      <td><span class="status ${r.status.toLowerCase()}">${r.status}</span></td>
+      <td><button class="mini-btn" onclick="togglePaid('${r.id}')">${r.status === 'Paid' ? 'Undo' : 'Pay'}</button></td></tr>`).join('')}</tbody>
+    </table></div>`;
 }
 
 function renderSpending() {
   const container = document.getElementById('tab-spending');
   container.innerHTML = `
-    <div class="panel"><div class="panel-head"><h2>Other Spending</h2></div>
-    <div class="panel-body stack">
-      <input type="text" id="spDesc" class="field" placeholder="Description">
-      <input type="number" id="spAmt" class="field" placeholder="Amount">
-      <input type="date" id="spDate" class="field" style="width: 100%; box-sizing: border-box;">
-      <button class="btn" onclick="addSpending()">Add Expense</button>
-    </div></div>
-    <div class="table-wrap"><table><thead><tr><th>Date</th><th>Description</th><th>Amount</th><th>Action</th></tr></thead><tbody>
-    ${state.spending.map(s => `<tr><td data-label="Date">${s.date}</td><td data-label="Desc">${s.description}</td><td data-label="Amt">${formatMoney(s.amount)}</td>
-    <td><button class="mini-btn danger-btn" onclick="deleteItem('spending','${s.id}')">Delete</button></td></tr>`).join('')}
-    </tbody></table></div>`;
+    <div class="panel"><div class="panel-head"><h2>Log Extra Spending</h2></div>
+      <div class="panel-body stack">
+        <input type="text" id="spDesc" class="field" placeholder="Description">
+        <input type="number" id="spAmt" class="field" placeholder="Amount ($)">
+        <input type="date" id="spDate" class="field">
+        <button class="btn" onclick="addSpending()">Add Expense</button>
+      </div>
+    </div>
+    <div class="panel"><div class="table-wrap"><table>
+      <thead><tr><th>Date</th><th>Desc</th><th>Amt</th><th>Action</th></tr></thead>
+      <tbody>${state.spending.map(s => `<tr><td>${s.date}</td><td>${s.description}</td><td>${formatMoney(s.amount)}</td>
+      <td><button class="mini-btn danger-btn" onclick="deleteItem('spending','${s.id}')">Del</button></td></tr>`).join('')}</tbody>
+    </table></div></div>`;
 }
 
 function renderDeposits() {
   const container = document.getElementById('tab-deposits');
   container.innerHTML = `
-    <div class="panel"><div class="panel-head"><h2>Deposits & Income</h2></div>
-    <div class="panel-body stack">
-      <input type="text" id="dpDesc" class="field" placeholder="Source">
-      <input type="number" id="dpAmt" class="field" placeholder="Amount">
-      <input type="date" id="dpDate" class="field" style="width: 100%; box-sizing: border-box;">
-      <button class="btn" onclick="addDeposit()">Add Deposit</button>
-    </div></div>
-    <div class="table-wrap"><table><thead><tr><th>Date</th><th>Source</th><th>Amount</th><th>Action</th></tr></thead><tbody>
-    ${state.deposits.map(d => `<tr><td data-label="Date">${d.date}</td><td data-label="Source">${d.description}</td><td data-label="Amt">${formatMoney(d.amount)}</td>
-    <td><button class="mini-btn danger-btn" onclick="deleteItem('deposits','${d.id}')">Delete</button></td></tr>`).join('')}
-    </tbody></table></div>`;
+    <div class="panel"><div class="panel-head"><h2>Log Income</h2></div>
+      <div class="panel-body stack">
+        <input type="text" id="dpDesc" class="field" placeholder="Source">
+        <input type="number" id="dpAmt" class="field" placeholder="Amount ($)">
+        <input type="date" id="dpDate" class="field">
+        <button class="btn" onclick="addDeposit()">Add Income</button>
+      </div>
+    </div>
+    <div class="panel"><div class="table-wrap"><table>
+      <thead><tr><th>Date</th><th>Source</th><th>Amt</th><th>Action</th></tr></thead>
+      <tbody>${state.deposits.map(d => `<tr><td>${d.date}</td><td>${d.description}</td><td>${formatMoney(d.amount)}</td>
+      <td><button class="mini-btn danger-btn" onclick="deleteItem('deposits','${d.id}')">Del</button></td></tr>`).join('')}</tbody>
+    </table></div></div>`;
 }
 
 function renderBudget() {
@@ -210,38 +213,35 @@ function renderBudget() {
   const spd = state.spending.reduce((s, sp) => s + sp.amount, 0);
   const container = document.getElementById('tab-budget');
   container.innerHTML = `
-    <div class="panel-head"><h2>Budget Tracker</h2></div>
+    <div class="panel"><div class="panel-head"><h2>Analysis</h2></div>
     <div class="summary-grid">
       <div class="summary-tile"><div class="label">Total Income</div><div class="value">${formatMoney(inc)}</div></div>
-      <div class="summary-tile"><div class="label">Monthly Bills</div><div class="value">${formatMoney(bil)}</div></div>
-      <div class="summary-tile"><div class="label">Extra Spending</div><div class="value">${formatMoney(spd)}</div></div>
-      <div class="summary-tile"><div class="label">Projected Leftover</div><div class="value" style="color:var(--accent)">${formatMoney(inc - (bil + spd))}</div></div>
-    </div>`;
+      <div class="summary-tile"><div class="label">Fixed Bills</div><div class="value">${formatMoney(bil)}</div></div>
+      <div class="summary-tile"><div class="label">Other Spending</div><div class="value">${formatMoney(spd)}</div></div>
+      <div class="summary-tile" style="border-top: 2px solid #3498db; padding-top:15px;">
+        <div class="label">Disposable Income</div><div class="value" style="color:#3498db">${formatMoney(inc - (bil + spd))}</div>
+      </div>
+    </div></div>`;
 }
 
 function renderSettings() {
   const container = document.getElementById('tab-settings');
   container.innerHTML = `
-    <div class="panel"><div class="panel-head"><h2>Settings & Profile</h2></div>
+    <div class="panel"><div class="panel-head"><h2>Profile Settings</h2></div>
       <div class="panel-body stack">
-        <label>User Name</label>
+        <label>User Display Name</label>
         <input type="text" class="field" value="${state.userName}" onchange="state.userName=this.value;saveState()">
       </div>
     </div>
     
-    <div class="panel" style="margin-top: 20px;">
+    <div class="panel">
       <div class="panel-head"><h2>Data Management</h2></div>
       <div class="panel-body stack">
-        <p style="font-size: 0.9em; color: #666; margin-bottom: 10px;">Back up your data or restore from a previous save.</p>
-        
-        <button class="btn" onclick="exportData()">Export Backup (JSON)</button>
-        
-        <div style="margin: 10px 0;">
-          <label style="font-weight: bold; display: block; margin-bottom: 5px;">Import Backup</label>
-          <input type="file" id="importFile" accept=".json" onchange="handleImport(event)" class="field" style="padding: 10px 5px; width: 100%; box-sizing: border-box;">
-        </div>
-
-        <button class="danger-btn" onclick="if(confirm('Are you absolutely sure? This will wipe all bills, income, and history.')){state=clone(defaultData);saveState()}" style="margin-top:20px">Wipe All Data</button>
+        <button class="btn" style="background:#34495e; margin-bottom:15px;" onclick="exportData()">Download Backup (JSON)</button>
+        <label style="font-weight: bold; margin-bottom: 5px; display: block;">Restore from Backup</label>
+        <input type="file" id="importFile" accept=".json" onchange="handleImport(event)" class="field">
+        <hr style="margin: 20px 0; border: 0; border-top: 1px solid #eee;">
+        <button class="danger-btn" onclick="if(confirm('Wipe all data?')){state=clone(defaultData);saveState()}">Factory Reset App</button>
       </div>
     </div>`;
 }
@@ -250,7 +250,11 @@ function renderSettings() {
 function toggleCustomFreq(v) { document.getElementById('customDays').classList.toggle('hidden', v !== 'Custom'); }
 function updateSearch(v) { scheduleSearch = v; renderSchedule(); }
 function toggle30DayFilter(v) { filter30Days = v; renderSchedule(); }
-function togglePaid(key) { state.scheduleMeta[key] = { paid: !state.scheduleMeta[key]?.paid }; saveState(); }
+function togglePaid(key) { 
+  if(!state.scheduleMeta) state.scheduleMeta = {};
+  state.scheduleMeta[key] = { paid: !state.scheduleMeta[key]?.paid }; 
+  saveState(); 
+}
 function deleteItem(coll, id) { state[coll] = state[coll].filter(i => i.id !== id); saveState(); }
 
 function addBill() {
@@ -274,7 +278,6 @@ function addDeposit() {
   saveState();
 }
 
-// --- INIT ---
 function renderApp() {
   const nav = document.getElementById('tabs');
   nav.innerHTML = TABS.map(t => `<button class="tab-btn ${activeTab === t.id ? 'active' : ''}" onclick="setTab('${t.id}')">${t.label}</button>`).join('');
