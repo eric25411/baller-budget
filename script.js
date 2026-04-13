@@ -10,6 +10,7 @@ const TABS = [
   { id: 'settings', label: 'Settings' },
 ];
 
+// --- UTILS & HELPERS ---
 function clone(obj) { return JSON.parse(JSON.stringify(obj)); }
 function makeId(prefix) { return prefix + '-' + Math.random().toString(36).slice(2, 8) + '-' + Date.now().toString(36); }
 function formatMoney(v) { return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(v || 0); }
@@ -24,6 +25,7 @@ const defaultData = {
 
 let state = JSON.parse(localStorage.getItem(STORAGE_KEY)) || clone(defaultData);
 let activeTab = 'dashboard';
+let scheduleSearch = '';
 
 function saveState() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
@@ -44,18 +46,18 @@ function getBudgetStats() {
   return { income, bills, extra, totalOut, remaining: income - totalOut };
 }
 
-// --- RENDERING FUNCTIONS ---
+// --- RENDERING LOGIC ---
 
 function renderDashboard() {
   const stats = getBudgetStats();
   const container = document.getElementById('tab-dashboard');
   container.innerHTML = `
     <div class="stats">
-      <div class="stat"><div class="label">Total Income</div><div class="value">${formatMoney(stats.income)}</div></div>
-      <div class="stat"><div class="label">Total Expenses</div><div class="value">${formatMoney(stats.totalOut)}</div></div>
+      <div class="stat"><div class="label">Total Income</div><div class="value" style="color:var(--good)">${formatMoney(stats.income)}</div></div>
+      <div class="stat"><div class="label">Total Expenses</div><div class="value" style="color:var(--bad)">${formatMoney(stats.totalOut)}</div></div>
       <div class="stat"><div class="label">Net Cash Flow</div><div class="value" style="color:var(--accent)">${formatMoney(stats.remaining)}</div></div>
     </div>
-    <div class="panel"><div class="panel-body"><h3>Welcome, ${state.userName}</h3><p>Your financials are synced and up to date.</p></div></div>`;
+    <div class="panel"><div class="panel-body"><h3>Welcome, ${state.userName}</h3><p>Your financials are synced and healthy.</p></div></div>`;
 }
 
 function renderBills() {
@@ -96,6 +98,35 @@ function renderBills() {
               <td data-label="Frequency">${b.frequency === 'Custom' ? `Every ${b.customDays} Days` : b.frequency}</td>
               <td data-label="Next Date">${b.date}</td>
               <td data-label="Actions"><button class="mini-btn danger-btn" onclick="deleteItem('bills','${b.id}')">Delete</button></td>
+            </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>`;
+}
+
+function renderSchedule() {
+  const container = document.getElementById('tab-schedule');
+  const items = state.schedule.filter(i => i.description.toLowerCase().includes(scheduleSearch.toLowerCase()));
+  const sorted = [...items].sort((a, b) => new Date(a.date) - new Date(b.date));
+
+  container.innerHTML = `
+    <div class="panel">
+      <div class="panel-head">
+        <h2>Payment Schedule</h2>
+        <input type="text" class="field inline-field" placeholder="Search..." value="${scheduleSearch}" oninput="updateSchedSearch(this.value)">
+      </div>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Date</th><th>Description</th><th>Amount</th><th>Status</th><th>Actions</th></tr></thead>
+        <tbody>
+          ${sorted.map(i => `
+            <tr>
+              <td data-label="Date">${i.date}</td>
+              <td data-label="Description"><strong>${i.description}</strong></td>
+              <td data-label="Amount">${formatMoney(i.amount)}</td>
+              <td data-label="Status"><span class="status ${i.status.toLowerCase()}">${i.status}</span></td>
+              <td data-label="Actions"><button class="mini-btn danger-btn" onclick="deleteItem('schedule','${i.id}')">Delete</button></td>
             </tr>`).join('')}
         </tbody>
       </table>
@@ -148,29 +179,11 @@ function renderBudget() {
   const stats = getBudgetStats();
   const container = document.getElementById('tab-budget');
   container.innerHTML = `
-    <div class="panel-head"><h2>Budget Analysis</h2></div>
+    <div class="panel-head"><h2>Budget Tracker</h2></div>
     <div class="summary-grid">
-      <div class="summary-tile"><div class="label">Income</div><div class="value">${formatMoney(stats.income)}</div></div>
-      <div class="summary-tile"><div class="label">Bills</div><div class="value">${formatMoney(stats.bills)}</div></div>
-      <div class="summary-tile"><div class="label">Extra</div><div class="value">${formatMoney(stats.extra)}</div></div>
+      <div class="summary-tile"><div class="label">Total Income</div><div class="value">${formatMoney(stats.income)}</div></div>
+      <div class="summary-tile"><div class="label">Total Out</div><div class="value">${formatMoney(stats.totalOut)}</div></div>
       <div class="summary-tile"><div class="label">Remaining</div><div class="value" style="color:var(--accent)">${formatMoney(stats.remaining)}</div></div>
-    </div>`;
-}
-
-function renderSchedule() {
-  const container = document.getElementById('tab-schedule');
-  const sorted = [...state.schedule].sort((a, b) => new Date(a.date) - new Date(b.date));
-  container.innerHTML = `
-    <div class="panel-head"><h2>Upcoming Timeline</h2></div>
-    <div class="table-wrap">
-      <table>
-        <thead><tr><th>Date</th><th>Description</th><th>Amount</th><th>Status</th><th>Actions</th></tr></thead>
-        <tbody>
-          ${sorted.map(i => `<tr><td data-label="Date">${i.date}</td><td data-label="Description"><strong>${i.description}</strong></td><td data-label="Amount">${formatMoney(i.amount)}</td>
-          <td data-label="Status"><span class="status ${i.status.toLowerCase()}">${i.status}</span></td>
-          <td data-label="Actions"><button class="mini-btn danger-btn" onclick="deleteItem('schedule','${i.id}')">Delete</button></td></tr>`).join('')}
-        </tbody>
-      </table>
     </div>`;
 }
 
@@ -181,57 +194,59 @@ function renderSettings() {
       <div class="panel-body stack">
         <label>User Name</label>
         <input type="text" class="field" value="${state.userName}" onchange="updateName(this.value)">
-        <button class="danger-btn" onclick="clearAllData()" style="margin-top:20px">Reset All Data</button>
+        <button class="danger-btn" onclick="clearAllData()" style="margin-top:20px">Wipe All Data</button>
       </div>
     </div>`;
 }
 
-// --- LOGIC & HELPERS ---
+// --- ACTIONS ---
 
 function toggleCustomFreq(val) {
-  const customInput = document.getElementById('customDays');
-  val === 'Custom' ? customInput.classList.remove('hidden') : customInput.classList.add('hidden');
+  const el = document.getElementById('customDays');
+  val === 'Custom' ? el.classList.remove('hidden') : el.classList.add('hidden');
 }
 
 function addBill() {
-  const name = document.getElementById('billName').value;
-  const amt = parseFloat(document.getElementById('billAmount').value);
-  const date = document.getElementById('billDate').value;
-  const freq = document.getElementById('billFreq').value;
-  const customDays = document.getElementById('customDays').value;
+  const n = document.getElementById('billName').value;
+  const a = parseFloat(document.getElementById('billAmount').value);
+  const d = document.getElementById('billDate').value;
+  const f = document.getElementById('billFreq').value;
+  const c = document.getElementById('customDays').value;
 
-  if (!name || isNaN(amt) || !date) return alert("Missing required fields");
+  if (!n || isNaN(a) || !d) return alert("Fill in Name, Amount, and Date");
 
-  state.bills.push({ id: makeId('bill'), name, amount: amt, date, frequency: freq, customDays: freq === 'Custom' ? customDays : null });
-  state.schedule.push({ id: makeId('sch'), description: name, amount: amt, date, status: 'Upcoming' });
+  state.bills.push({ id: makeId('bill'), name: n, amount: a, date: d, frequency: f, customDays: f === 'Custom' ? c : null });
+  state.schedule.push({ id: makeId('sch'), description: n, amount: a, date: d, status: 'Upcoming' });
   saveState();
 }
 
 function addSpending() {
-  const desc = document.getElementById('spendDesc').value;
-  const amt = parseFloat(document.getElementById('spendAmt').value);
-  const date = document.getElementById('spendDate').value;
-  if (!desc || isNaN(amt) || !date) return alert("Fill in Description, Amount, and Date");
-  state.spending.push({ id: makeId('spend'), description: desc, amount: amt, date });
+  const n = document.getElementById('spendDesc').value;
+  const a = parseFloat(document.getElementById('spendAmt').value);
+  const d = document.getElementById('spendDate').value;
+  if (!n || isNaN(a) || !d) return;
+  state.spending.push({ id: makeId('spend'), description: n, amount: a, date: d });
   saveState();
 }
 
 function addDeposit() {
-  const desc = document.getElementById('depDesc').value;
-  const amt = parseFloat(document.getElementById('depAmt').value);
-  const date = document.getElementById('depDate').value;
-  if (!desc || isNaN(amt) || !date) return alert("Fill in Source, Amount, and Date");
-  state.deposits.push({ id: makeId('dep'), description: desc, amount: amt, date });
+  const n = document.getElementById('depDesc').value;
+  const a = parseFloat(document.getElementById('depAmt').value);
+  const d = document.getElementById('depDate').value;
+  if (!n || isNaN(a) || !d) return;
+  state.deposits.push({ id: makeId('dep'), description: n, amount: a, date: d });
   saveState();
 }
 
 function deleteItem(coll, id) { state[coll] = state[coll].filter(i => i.id !== id); saveState(); }
 function updateName(v) { state.userName = v; saveState(); }
-function clearAllData() { if(confirm("Wipe all budget data?")) { state = clone(defaultData); saveState(); } }
+function updateSchedSearch(v) { scheduleSearch = v; renderSchedule(); }
+function clearAllData() { if(confirm("Wipe everything?")) { state = clone(defaultData); saveState(); } }
 
 function renderApp() {
   const nav = document.getElementById('tabs');
   nav.innerHTML = TABS.map(t => `<button class="tab-btn ${activeTab === t.id ? 'active' : ''}" onclick="setTab('${t.id}')">${t.label}</button>`).join('');
+  
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.add('hidden'));
   const activePanel = document.getElementById(`tab-${activeTab}`);
   if (activePanel) activePanel.classList.remove('hidden');
