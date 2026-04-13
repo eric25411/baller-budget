@@ -1224,7 +1224,14 @@ function renderDeposits() {
     const total = items.reduce(function (sum, item) {
       return sum + numberOrZero(item.amount);
     }, 0);
-    return { id: period.id, payDate: period.payDate, windowStart: start, windowEnd: end, items, total };
+    return {
+      id: period.id,
+      payDate: period.payDate,
+      windowStart: start,
+      windowEnd: end,
+      items: items,
+      total: total
+    };
   });
 
   const outsideRange = rows.filter(function (item) {
@@ -1254,4 +1261,227 @@ function renderDeposits() {
           '</div>';
         }).join('') +
         (outsideRange.length
-          ? '<div class="period-card"><div class="period-head"><div><h3>Outside current pay periods</h3><p class="muted">These deposits do not currently land inside one of the pay
+          ? '<div class="period-card"><div class="period-head"><div><h3>Outside current pay periods</h3><p class="muted">These deposits do not currently land inside one of the pay period windows.</p></div></div><div class="table-wrap"><table><thead><tr><th>Date</th><th>Amount</th><th>Comments</th><th></th></tr></thead><tbody>' +
+              outsideRange.map(function (item) {
+                return '<tr><td><input class="field deposit-date" data-id="' + item.id + '" type="date" value="' + item.date + '" /></td><td><input class="field deposit-amount" data-id="' + item.id + '" type="number" step="0.01" value="' + item.amount + '" /></td><td><input class="field deposit-comments" data-id="' + item.id + '" value="' + escapeHtml(item.comments || '') + '" /></td><td><button class="danger-btn delete-deposit" data-id="' + item.id + '">Remove</button></td></tr>';
+              }).join('') +
+            '</tbody></table></div></div>'
+          : '') +
+      '</div></div></div>';
+
+  const depositsGoBudgetBtn = document.getElementById('depositsGoBudgetBtn');
+  if (depositsGoBudgetBtn) {
+    depositsGoBudgetBtn.addEventListener('click', function () {
+      activeTab = 'budget';
+      renderApp();
+    });
+  }
+
+  document.querySelectorAll('.add-deposit-for-period').forEach(function (el) {
+    el.addEventListener('click', function (e) {
+      const periodId = e.target.dataset.periodId;
+      const period = (state.payPeriods || []).find(function (p) {
+        return p.id === periodId;
+      });
+      if (!period) return;
+
+      setState(function (currentState) {
+        const copy = clone(currentState);
+        copy.deposits.push({
+          id: makeId('dep'),
+          date: period.payDate,
+          amount: 0,
+          comments: ''
+        });
+        return copy;
+      });
+    });
+  });
+
+  document.querySelectorAll('.deposit-date').forEach(function (el) {
+    el.addEventListener('change', function (e) {
+      updateDepositField(e.target.dataset.id, 'date', e.target.value);
+    });
+  });
+
+  document.querySelectorAll('.deposit-amount').forEach(function (el) {
+    el.addEventListener('change', function (e) {
+      updateDepositField(e.target.dataset.id, 'amount', numberOrZero(e.target.value));
+    });
+  });
+
+  document.querySelectorAll('.deposit-comments').forEach(function (el) {
+    el.addEventListener('change', function (e) {
+      updateDepositField(e.target.dataset.id, 'comments', e.target.value);
+    });
+  });
+
+  document.querySelectorAll('.delete-deposit').forEach(function (el) {
+    el.addEventListener('click', function (e) {
+      if (!window.confirm('Remove this deposit row?')) return;
+      const id = e.target.dataset.id;
+      setState(function (currentState) {
+        const copy = clone(currentState);
+        copy.deposits = copy.deposits.filter(function (item) {
+          return item.id !== id;
+        });
+        return copy;
+      });
+    });
+  });
+}
+
+function renderSettings() {
+  const target = document.getElementById('tab-settings');
+  if (!target) return;
+
+  target.innerHTML =
+    '<div class="grid-two">' +
+      '<div class="panel"><div class="panel-head"><div><h2>App settings</h2><p>Control the defaults used when new periods and schedules are created.</p></div></div><div class="panel-body stack">' +
+        '<div><label class="muted" style="display:block;margin-bottom:8px;">Opening balance</label><input class="field" id="settingsOpeningBalance" type="number" step="0.01" value="' + state.settings.openingBalance + '" /></div>' +
+        '<div><label class="muted" style="display:block;margin-bottom:8px;">Schedule horizon, months forward</label><input class="field" id="settingsMonthsForward" type="number" min="1" max="24" value="' + state.settings.scheduleMonthsForward + '" /></div>' +
+        '<div><label class="muted" style="display:block;margin-bottom:8px;">Default income for new periods</label><input class="field" id="settingsDefaultIncome" type="number" step="0.01" value="' + state.settings.defaultIncome + '" /></div>' +
+        '<label class="checkbox-wrap"><input type="checkbox" id="settingsCopyPreviousIncome" ' + (state.settings.copyPreviousIncome ? 'checked' : '') + ' />Copy previous pay period income when starting a new one</label>' +
+      '</div></div>' +
+
+      '<div class="panel"><div class="panel-head"><div><h2>Export CSV</h2><p>Download your app data as CSV files for Excel or backup use.</p></div></div><div class="panel-body stack">' +
+        '<button class="btn" id="exportBillsCsvBtn">Export bills CSV</button>' +
+        '<button class="btn" id="exportBudgetCsvBtn">Export budget CSV</button>' +
+        '<button class="btn" id="exportSpendingCsvBtn">Export spending CSV</button>' +
+        '<button class="btn" id="exportDepositsCsvBtn">Export deposits CSV</button>' +
+        '<div class="note-box">JSON backup keeps everything. CSV exports are better for reviewing data in spreadsheets.</div>' +
+      '</div></div>' +
+    '</div>';
+
+  const settingsOpeningBalance = document.getElementById('settingsOpeningBalance');
+  if (settingsOpeningBalance) {
+    settingsOpeningBalance.addEventListener('change', function (e) {
+      setState(function (currentState) {
+        const copy = clone(currentState);
+        copy.settings.openingBalance = numberOrZero(e.target.value);
+        return copy;
+      });
+    });
+  }
+
+  const settingsMonthsForward = document.getElementById('settingsMonthsForward');
+  if (settingsMonthsForward) {
+    settingsMonthsForward.addEventListener('change', function (e) {
+      setState(function (currentState) {
+        const copy = clone(currentState);
+        copy.settings.scheduleMonthsForward = Math.max(1, numberOrZero(e.target.value));
+        return copy;
+      });
+    });
+  }
+
+  const settingsDefaultIncome = document.getElementById('settingsDefaultIncome');
+  if (settingsDefaultIncome) {
+    settingsDefaultIncome.addEventListener('change', function (e) {
+      setState(function (currentState) {
+        const copy = clone(currentState);
+        copy.settings.defaultIncome = numberOrZero(e.target.value);
+        return copy;
+      });
+    });
+  }
+
+  const settingsCopyPreviousIncome = document.getElementById('settingsCopyPreviousIncome');
+  if (settingsCopyPreviousIncome) {
+    settingsCopyPreviousIncome.addEventListener('change', function (e) {
+      setState(function (currentState) {
+        const copy = clone(currentState);
+        copy.settings.copyPreviousIncome = e.target.checked;
+        return copy;
+      });
+    });
+  }
+
+  const exportBillsCsvBtn = document.getElementById('exportBillsCsvBtn');
+  if (exportBillsCsvBtn) {
+    exportBillsCsvBtn.addEventListener('click', function () {
+      exportCsv('budgetflow-bills.csv', getBillsCsvRows());
+    });
+  }
+
+  const exportBudgetCsvBtn = document.getElementById('exportBudgetCsvBtn');
+  if (exportBudgetCsvBtn) {
+    exportBudgetCsvBtn.addEventListener('click', function () {
+      exportCsv('budgetflow-budget.csv', getPayPeriodsCsvRows());
+    });
+  }
+
+  const exportSpendingCsvBtn = document.getElementById('exportSpendingCsvBtn');
+  if (exportSpendingCsvBtn) {
+    exportSpendingCsvBtn.addEventListener('click', function () {
+      exportCsv('budgetflow-spending.csv', getSpendingCsvRows());
+    });
+  }
+
+  const exportDepositsCsvBtn = document.getElementById('exportDepositsCsvBtn');
+  if (exportDepositsCsvBtn) {
+    exportDepositsCsvBtn.addEventListener('click', function () {
+      exportCsv('budgetflow-deposits.csv', getDepositsCsvRows());
+    });
+  }
+}
+
+function renderApp() {
+  renderTabs();
+  renderDashboard();
+  renderBills();
+  renderSchedule();
+  renderBudget();
+  renderSpending();
+  renderDeposits();
+  renderSettings();
+  setTab(activeTab);
+}
+
+function wireGlobalActions() {
+  const exportBtn = document.getElementById('exportBtn');
+  if (exportBtn) {
+    exportBtn.addEventListener('click', function () {
+      downloadJson('budgetflow-backup.json', state);
+    });
+  }
+
+  const importFile = document.getElementById('importFile');
+  if (importFile) {
+    importFile.addEventListener('change', function (e) {
+      const file = e.target.files && e.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function (event) {
+        try {
+          const parsed = JSON.parse(event.target.result);
+          state = normalizeState(parsed);
+          saveState();
+          renderApp();
+          alert('Backup imported.');
+        } catch (err) {
+          alert('That file could not be imported.');
+        }
+      };
+      reader.readAsText(file);
+      e.target.value = '';
+    });
+  }
+
+  const seedBtn = document.getElementById('seedBtn');
+  if (seedBtn) {
+    seedBtn.addEventListener('click', function () {
+      if (!window.confirm('Reset the app and clear saved data?')) return;
+      state = clone(defaultData);
+      saveState();
+      activeTab = 'dashboard';
+      scheduleSearch = '';
+      next30Only = true;
+      renderApp();
+    });
+  }
+}
+
+wireGlobalActions();
+renderApp();
