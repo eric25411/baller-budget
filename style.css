@@ -1,943 +1,169 @@
 :root {
-  --bg-1: #020617;
-  --bg-2: #0f172a;
-  --panel: rgba(15, 23, 42, 0.82);
-  --line: rgba(255, 255, 255, 0.1);
-  --text: #f8fafc;
-  --muted: #94a3b8;
-  --accent: #5fa8ff;
-  --accent-soft: rgba(95, 168, 255, 0.18);
-  --good: #10b981;
-  --warn: #f59e0b;
-  --bad: #f43f5e;
-  --radius: 24px;
-  --shadow: 0 20px 70px rgba(0, 0, 0, 0.38);
+  --bg-color: #f0f2f5;       /* Soft light gray background */
+  --panel-bg: #ffffff;       /* Clean white for the cards */
+  --text-main: #2d3436;      /* Deep charcoal instead of pure black */
+  --accent: #3498db;         /* Professional Blue */
+  --good: #2ecc71;           /* Green */
+  --bad: #e74c3c;            /* Red */
+  --border: #dcdde1;
 }
 
-* {
-  box-sizing: border-box;
-}
-
-html,
 body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  background-color: var(--bg-color);
+  color: var(--text-main);
   margin: 0;
   padding: 0;
-  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  background: radial-gradient(circle at top, rgba(95, 168, 255, 0.18), transparent 28%),
-    linear-gradient(180deg, var(--bg-2), var(--bg-1));
-  color: var(--text);
-  min-height: 100%;
+  line-height: 1.5;
 }
 
-body {
+.app-header {
+  background: var(--accent);
+  color: white;
   padding: 20px;
+  text-align: center;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
 
-.app {
-  max-width: 1480px;
+/* NAVIGATION */
+.nav {
+  display: flex;
+  overflow-x: auto;
+  background: white;
+  padding: 10px;
+  gap: 8px;
+  sticky: top;
+  border-bottom: 1px solid var(--border);
+}
+
+.tab-btn {
+  padding: 10px 18px;
+  border: none;
+  background: #f8f9fa;
+  border-radius: 20px;
+  white-space: nowrap;
+  font-weight: 600;
+  color: #636e72;
+  cursor: pointer;
+}
+
+.tab-btn.active {
+  background: var(--accent);
+  color: white;
+}
+
+/* MAIN CONTENT SPACING */
+main {
+  padding: 20px 15px;
+  max-width: 600px;
   margin: 0 auto;
 }
 
-.hero {
-  background: var(--panel);
-  border: 1px solid var(--line);
-  border-radius: 30px;
-  padding: 28px;
-  box-shadow: var(--shadow);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
-  margin-bottom: 18px;
-}
-
-.badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  border-radius: 999px;
-  border: 1px solid rgba(95, 168, 255, 0.26);
-  background: var(--accent-soft);
-  color: #d7ebff;
-  padding: 7px 12px;
-  text-transform: uppercase;
-  letter-spacing: 0.18em;
-  font-size: 11px;
-  font-weight: 700;
-  margin-bottom: 12px;
-}
-
-h1,
-h2,
-h3,
-p {
-  margin: 0;
-}
-
-.hero-grid {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 18px;
-  align-items: end;
-  justify-content: space-between;
-}
-
-.hero-copy {
-  flex: 1 1 640px;
-}
-
-.hero-copy h1 {
-  font-size: clamp(30px, 4vw, 44px);
-  line-height: 1.02;
-  letter-spacing: -0.03em;
-  margin-bottom: 10px;
-}
-
-.hero-copy p {
-  color: var(--muted);
-  max-width: 900px;
-  line-height: 1.6;
-  font-size: 15px;
-}
-
-.hero-actions,
-.controls {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  align-items: center;
-}
-
-.tabs {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  margin-bottom: 18px;
-}
-
-.tab-btn,
-.btn,
-.danger-btn,
-.ghost-btn,
-.mini-btn,
-.upload-label {
-  appearance: none;
-  border: 1px solid var(--line);
-  background: rgba(255, 255, 255, 0.05);
-  color: var(--text);
-  border-radius: 999px;
-  padding: 11px 15px;
-  font-size: 14px;
-  cursor: pointer;
-  transition: 0.18s ease;
-  font-weight: 600;
-  text-decoration: none;
-}
-
-.tab-btn:hover,
-.btn:hover,
-.ghost-btn:hover,
-.mini-btn:hover,
-.upload-label:hover {
-  background: rgba(255, 255, 255, 0.1);
-}
-
-.tab-btn.active,
-.btn {
-  background: linear-gradient(180deg, rgba(95, 168, 255, 0.95), rgba(63, 142, 252, 0.95));
-  border-color: rgba(255, 255, 255, 0.16);
-  box-shadow: 0 16px 34px rgba(63, 142, 252, 0.25);
-}
-
-.ghost-btn,
-.danger-btn,
-.upload-label {
-  border-radius: 16px;
-  padding: 12px 14px;
-}
-
-.danger-btn {
-  border-color: rgba(244, 63, 94, 0.25);
-  background: rgba(244, 63, 94, 0.12);
-  color: #fecdd3;
-}
-
-.danger-btn:hover {
-  background: rgba(244, 63, 94, 0.18);
-}
-
-.mini-btn {
-  border-radius: 14px;
-  padding: 9px 12px;
-  font-size: 12px;
-}
-
 .panel {
-  background: var(--panel);
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
-  overflow: hidden;
-  margin-bottom: 18px;
+  background: var(--panel-bg);
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 25px; /* Added breathing room between sections */
+  box-shadow: 0 4px 6px rgba(0,0,0,0.05); /* Soft shadow for depth */
 }
 
 .panel-head {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  gap: 14px;
-  align-items: center;
-  padding: 18px 20px;
-  border-bottom: 1px solid var(--line);
+  margin-bottom: 15px;
+  border-bottom: 1px solid #f1f2f6;
+  padding-bottom: 10px;
 }
 
-.panel-head p {
-  color: var(--muted);
-  font-size: 14px;
-  margin-top: 5px;
+.panel-head h2 {
+  margin: 0;
+  font-size: 1.2rem;
+  color: var(--accent);
 }
 
-.panel-body {
-  padding: 18px 20px 22px;
-}
-
-.stats {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 14px;
-  margin-bottom: 18px;
-}
-
-.stat {
-  background: rgba(2, 6, 23, 0.58);
-  border: 1px solid var(--line);
-  border-radius: 20px;
-  padding: 16px;
-  min-height: 112px;
-}
-
-.stat .label {
-  color: var(--muted);
-  font-size: 13px;
-  margin-bottom: 10px;
-}
-
-.stat .value {
-  font-size: 28px;
-  font-weight: 700;
-  letter-spacing: -0.03em;
-  margin-bottom: 4px;
-}
-
-.stat .sub {
-  color: var(--muted);
-  font-size: 13px;
-  line-height: 1.45;
-}
-
-.grid-two {
-  display: grid;
-  grid-template-columns: 1.2fr 0.8fr;
-  gap: 18px;
-  margin-bottom: 18px;
-}
-
-.stack {
-  display: grid;
-  gap: 14px;
-}
-
-.field,
-.select {
+/* INPUT FIELDS & CALENDAR BOX */
+.field {
   width: 100%;
-  border-radius: 14px;
-  border: 1px solid var(--line);
-  background: rgba(2, 6, 23, 0.75);
-  color: var(--text);
-  padding: 11px 12px;
-  font-size: 14px;
+  height: 48px;
+  padding: 12px;
+  margin-bottom: 15px; /* Space between fields */
+  border: 1.5px solid var(--border);
+  border-radius: 10px;
+  font-size: 16px;
+  background: #fdfdfd;
+  box-sizing: border-box; /* The magic fix for width */
+  display: block;
+  -webkit-appearance: none; 
+}
+
+.field:focus {
   outline: none;
+  border-color: var(--accent);
+  background: #fff;
 }
 
-.field:focus,
-.select:focus {
-  border-color: rgba(95, 168, 255, 0.55);
-  box-shadow: 0 0 0 4px rgba(95, 168, 255, 0.08);
-}
-
-.inline-field {
-  width: 160px;
-}
-
-.checkbox-wrap {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid var(--line);
-  border-radius: 14px;
-  padding: 10px 12px;
-  font-size: 14px;
-  color: var(--muted);
-}
-
-input[type="checkbox"] {
-  width: 16px;
-  height: 16px;
-  accent-color: #5fa8ff;
+/* BUTTONS */
+.btn {
+  width: 100%;
+  height: 50px;
+  background: var(--accent);
+  color: white;
+  border: none;
+  border-radius: 10px;
+  font-weight: bold;
+  font-size: 1rem;
   cursor: pointer;
 }
 
+.danger-btn {
+  width: 100%;
+  padding: 12px;
+  background: #fff;
+  color: var(--bad);
+  border: 1.5px solid var(--bad);
+  border-radius: 10px;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+/* TABLES */
 .table-wrap {
-  overflow: auto;
-  border-radius: 18px;
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  overflow-x: auto;
 }
 
 table {
   width: 100%;
   border-collapse: collapse;
-  min-width: 980px;
-  font-size: 14px;
+  font-size: 0.9rem;
 }
 
-th,
+th {
+  text-align: left;
+  padding: 12px 8px;
+  color: #636e72;
+  border-bottom: 2px solid var(--bg-color);
+}
+
 td {
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-  padding: 12px;
-  text-align: left;
-  vertical-align: top;
+  padding: 12px 8px;
+  border-bottom: 1px solid #f1f2f6;
 }
 
-thead th {
-  color: var(--muted);
-  font-size: 12px;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  background: rgba(255, 255, 255, 0.03);
-  position: sticky;
-  top: 0;
-  z-index: 1;
-}
-
-tbody tr:hover {
-  background: rgba(255, 255, 255, 0.035);
-}
-
-.status {
-  display: inline-flex;
-  align-items: center;
-  border-radius: 999px;
-  padding: 7px 10px;
-  font-size: 12px;
-  font-weight: 700;
-}
-
-.status.paid {
-  background: rgba(16, 185, 129, 0.16);
-  color: #bbf7d0;
-}
-
-.status.soon {
-  background: rgba(245, 158, 11, 0.16);
-  color: #fde68a;
-}
-
-.status.overdue {
-  background: rgba(244, 63, 94, 0.16);
-  color: #fecdd3;
-}
-
-.status.later {
-  background: rgba(148, 163, 184, 0.16);
-  color: #cbd5e1;
-}
-
-.muted {
-  color: var(--muted);
-}
-
-.hidden {
-  display: none !important;
-}
-
-.next-list,
-.period-list {
+/* DASHBOARD TILES */
+.stats {
   display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
   gap: 10px;
+  margin-bottom: 20px;
 }
 
-.next-item,
-.period-card {
-  display: grid;
-  gap: 12px;
-  padding: 14px 15px;
-  border-radius: 18px;
-  background: rgba(2, 6, 23, 0.52);
-  border: 1px solid var(--line);
-}
-
-.next-item {
-  grid-template-columns: 130px 1fr 130px 120px;
-  align-items: center;
-}
-
-.note-box {
-  border-radius: 18px;
-  border: 1px solid var(--line);
-  background: rgba(2, 6, 23, 0.45);
-  padding: 15px;
-  color: var(--muted);
-  line-height: 1.6;
-  font-size: 14px;
-}
-
-.empty-state {
-  display: grid;
-  gap: 12px;
-  padding: 22px;
-  text-align: left;
-}
-
-.empty-state h3 {
-  font-size: 20px;
-  color: var(--text);
-}
-
-.empty-state p {
-  color: var(--muted);
-  max-width: 760px;
-  line-height: 1.65;
-}
-
-.empty-state-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-}
-
-.empty-state-steps {
-  display: grid;
-  gap: 8px;
-  margin-top: 4px;
-  color: var(--muted);
-}
-
-.empty-state-step {
-  display: flex;
-  gap: 10px;
-  align-items: flex-start;
-}
-
-.empty-state-step strong {
-  color: var(--text);
-}
-
-.period-head {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  gap: 12px;
-  align-items: center;
-  padding-bottom: 10px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-}
-
-.period-meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 16px;
-  color: var(--muted);
-  font-size: 14px;
-}
-
-.summary-grid {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 12px;
-  margin-bottom: 16px;
-}
-
-.summary-tile {
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(2, 6, 23, 0.5);
-  border-radius: 16px;
-  padding: 12px;
-}
-
-.summary-tile .label {
-  color: var(--muted);
-  font-size: 12px;
-  margin-bottom: 6px;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-}
-
-.summary-tile .value {
-  font-size: 20px;
-  font-weight: 700;
-  letter-spacing: -0.02em;
-}
-
-.budget-stack {
-  display: grid;
-  gap: 12px;
-}
-
-.budget-period {
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(2, 6, 23, 0.52);
-  border-radius: 18px;
-  overflow: hidden;
-}
-
-.budget-period summary {
-  list-style: none;
-  cursor: pointer;
-}
-
-.budget-period summary::-webkit-details-marker {
-  display: none;
-}
-
-.budget-summary {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  gap: 12px;
-  align-items: center;
-  padding: 14px 16px;
-}
-
-.budget-summary-main {
-  display: grid;
-  gap: 4px;
-}
-
-.budget-summary-main h3 {
-  font-size: 16px;
-}
-
-.budget-kpis {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  align-items: center;
-  justify-content: flex-end;
-}
-
-.budget-kpi {
-  border: 1px solid rgba(255, 255, 255, 0.07);
-  background: rgba(255, 255, 255, 0.03);
+.stat {
+  background: white;
+  padding: 15px 10px;
   border-radius: 12px;
-  padding: 8px 10px;
-  min-width: 110px;
+  text-align: center;
+  box-shadow: 0 4px 6px rgba(0,0,0,0.05);
 }
 
-.budget-kpi .label {
-  color: var(--muted);
-  font-size: 11px;
-  margin-bottom: 4px;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
+.stat .label { font-size: 0.75rem; color: #636e72; text-transform: uppercase; }
+.stat .value { font-size: 1rem; font-weight: bold; margin-top: 5px; }
 
-.budget-kpi .value {
-  font-size: 15px;
-  font-weight: 700;
-}
-
-.budget-detail {
-  padding: 0 16px 16px;
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
-}
-
-.budget-section-label {
-  color: var(--muted);
-  font-size: 12px;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  margin: 6px 0 10px;
-}
-
-.settings-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 18px;
-}
-
-.setting-card {
-  background: rgba(2, 6, 23, 0.52);
-  border: 1px solid var(--line);
-  border-radius: 20px;
-  padding: 18px;
-}
-
-.setting-card h3 {
-  font-size: 18px;
-  margin-bottom: 6px;
-}
-
-.setting-card p {
-  color: var(--muted);
-  line-height: 1.6;
-  margin-bottom: 14px;
-}
-
-.setting-row {
-  display: grid;
-  gap: 8px;
-  margin-bottom: 14px;
-}
-
-.setting-row label {
-  color: var(--muted);
-  font-size: 13px;
-}
-
-.setting-hint {
-  color: var(--muted);
-  font-size: 13px;
-  line-height: 1.5;
-  margin-top: 4px;
-}
-
-.export-grid {
-  display: grid;
-  gap: 10px;
-}
-
-#importFile {
-  display: none;
-}
-
-@media (max-width: 1180px) {
-  .stats,
-  .grid-two,
-  .summary-grid,
-  .settings-grid {
-    grid-template-columns: 1fr 1fr;
-  }
-}
-
-@media (max-width: 900px) {
-  body {
-    padding: 14px;
-  }
-
-  .hero,
-  .panel-body,
-  .panel-head {
-    padding-left: 16px;
-    padding-right: 16px;
-  }
-
-  .stats,
-  .grid-two,
-  .summary-grid,
-  .settings-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .next-item {
-    grid-template-columns: 1fr;
-  }
-
-  .hero-actions > *,
-  .controls > * {
-    flex: 1 1 100%;
-  }
-
-  .inline-field {
-    width: 100%;
-  }
-}
-@media (max-width: 768px) {
-  .app {
-    padding: 12px;
-  }
-
-  .hero {
-    padding: 18px;
-    border-radius: 20px;
-  }
-
-  .hero-grid {
-    grid-template-columns: 1fr;
-    gap: 16px;
-  }
-
-  .hero-copy h1 {
-    font-size: 48px;
-    line-height: 1;
-  }
-
-  .hero-actions {
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: 10px;
-    width: 100%;
-  }
-
-  .hero-actions .btn,
-  .hero-actions .ghost-btn,
-  .hero-actions .upload-label {
-    width: 100%;
-    justify-content: center;
-  }
-
-  .tabs {
-    overflow-x: auto;
-    gap: 8px;
-    padding-bottom: 4px;
-    -webkit-overflow-scrolling: touch;
-  }
-
-  .tab-btn {
-    flex: 0 0 auto;
-    white-space: nowrap;
-  }
-
-  .grid-two {
-    grid-template-columns: 1fr;
-  }
-
-  .stats {
-    grid-template-columns: 1fr 1fr;
-    gap: 12px;
-  }
-
-  .budget-kpis {
-    grid-template-columns: 1fr 1fr;
-    gap: 12px;
-  }
-
-  .budget-summary {
-    display: block;
-  }
-
-  .budget-summary-main {
-    margin-bottom: 16px;
-  }
-
-  .table-wrap {
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-  }
-
-  table {
-    min-width: 900px;
-  }
-
-  .period-head,
-  .panel-head {
-    display: block;
-  }
-
-  .period-head .controls,
-  .panel-head .controls {
-    margin-top: 12px;
-  }
-
-  .next-item {
-    grid-template-columns: 1fr;
-    gap: 6px;
-  }
-}
-
-@media (max-width: 520px) {
-  .hero-copy h1 {
-    font-size: 40px;
-  }
-
-  .stats,
-  .budget-kpis {
-    grid-template-columns: 1fr;
-  }
-
-  .budget-period {
-    border-radius: 20px;
-  }
-@media (max-width: 768px) {
-  /* 1. Hide the desktop headers */
-  thead {
-    display: none;
-  }
-
-  /* 2. Turn rows into cards */
-  tr {
-    display: grid;
-    grid-template-columns: 1fr 1fr; /* Two-column layout for the card details */
-    gap: 8px;
-    background: var(--panel);
-    border: 1px solid var(--line);
-    margin-bottom: 16px;
-    padding: 16px;
-    border-radius: 20px;
-    box-shadow: var(--shadow);
-  }
-
-  /* 3. Make cells behave like labels/values */
-  td {
-    display: flex;
-    flex-direction: column;
-    border: none !important;
-    padding: 4px 0 !important;
-    text-align: left !important;
-  }
-
-  /* 4. Pull the label from the data-label attribute */
-  td::before {
-    content: attr(data-label);
-    font-size: 11px;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    color: var(--muted);
-    margin-bottom: 4px;
-  }
-
-  /* 5. Special handling for the first cell (The Name) */
-  td[data-label="Name"] {
-    grid-column: span 2; /* Make the title take up the full card width */
-    border-bottom: 1px solid var(--line) !important;
-    padding-bottom: 10px !important;
-    margin-bottom: 8px;
-  }
-
-  td[data-label="Name"] strong {
-    font-size: 18px;
-    color: var(--accent);
-  }
-
-  /* 6. Ensure the Actions button stays tucked away */
-  td[data-label="Actions"] {
-    grid-column: span 2;
-    padding-top: 10px !important;
-    border-top: 1px solid var(--line) !important;
-    align-items: flex-start;
-  }
-}
-  .budget-detail {
-    padding: 0;
-  }
-}
-@media (max-width: 768px) {
-  /* Hide the horizontal scroll wrapper since we won't need it */
-  .table-wrap {
-    overflow: visible;
-    border: none;
-  }
-
-  /* Hide original table headers */
-  thead {
-    display: none;
-  }
-
-  /* Turn the table body into a vertical stack */
-  table, tbody, tr, td {
-    display: block;
-    width: 100%;
-  }
-
-  table {
-    min-width: unset; /* Remove that 980px minimum */
-  }
-
-  /* Turn each row into a distinct floating card */
-  tr {
-    background: var(--panel);
-    border: 1px solid var(--line);
-    border-radius: 20px;
-    padding: 16px;
-    margin-bottom: 16px;
-    box-shadow: var(--shadow);
-  }
-
-  /* Style each cell as a Row (Label: Value) */
-  td {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 10px 0;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-    text-align: right;
-  }
-
-  td:last-child {
-    border-bottom: none;
-    justify-content: center; /* Center the buttons */
-    padding-top: 15px;
-  }
-
-  /* Inject the labels from the data-label attribute */
-  td::before {
-    content: attr(data-label);
-    font-size: 11px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-    color: var(--muted);
-    float: left;
-    text-align: left;
-  }
-
-  /* Make the "Description" or "Name" stand out as a header */
-  td[data-label="Description"], 
-  td[data-label="Name"] {
-    flex-direction: column;
-    align-items: flex-start;
-    border-bottom: 2px solid var(--accent-soft);
-    margin-bottom: 8px;
-  }
-
-  td[data-label="Description"]::before,
-  td[data-label="Name"]::before {
-    margin-bottom: 4px;
-  }
-
-  td[data-label="Description"] strong,
-  td[data-label="Name"] strong {
-    font-size: 18px;
-    color: var(--text);
-  }
-}
-/* Ensure all inputs, including dates, are identical in size */
-.field {
-  width: 100%;
-  height: 45px; /* Fixed height makes them look uniform */
-  padding: 10px;
-  margin-bottom: 12px; /* Added space between individual fields */
-  border: 1px solid #ddd;
-  border-radius: 8px;
-  font-size: 16px;
-  box-sizing: border-box; /* Crucial: prevents width overflow */
-  display: block;
-  -webkit-appearance: none; /* Removes default mobile styling */
-}
-
-/* Add more space between the major panels/sections */
-.panel {
-  margin-bottom: 25px; 
-  padding: 15px;
-  background: #fff;
-  border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-}
-
-/* Extra space for the headers inside panels */
-.panel-head {
-  margin-bottom: 15px;
-  border-bottom: 1px solid #eee;
-  padding-bottom: 10px;
-}
-
-/* Spacing for the buttons */
-.btn, .danger-btn {
-  margin-top: 10px;
-  height: 48px;
-}
-
-/* Adds padding to the main container so it's not touching the screen edges */
-main {
-  padding: 15px;
-}
+.hidden { display: none; }
