@@ -594,94 +594,258 @@ function renderDashboard() {
   }
 }
 
-function renderBills() { /* trimmed in canvas for brevity? */ }
+function renderBills() {
+  const billsEmpty = !(state.bills || []).length;
+  const emptyHtml = billsEmpty
+    ? '<div class="panel"><div class="panel-body"><div class="empty-state"><h3>No bills yet</h3><p>Add your recurring bills here so BudgetFlow can build your schedule and show what is coming up next.</p><div class="empty-state-actions"><button class="btn" id="emptyAddBillBtn">Add your first bill</button></div></div></div></div>'
+    : '';
 
-function renderSchedule() { /* use previous full version in chat if needed */ }
+  document.getElementById('tab-bills').innerHTML =
+    emptyHtml +
+    '<div class="panel"><div class="panel-head"><div><h2>Bills</h2><p>Your recurring bill list.</p></div><div class="controls"><button class="btn" id="addBillBtn">Add bill</button></div></div><div class="panel-body">' +
+      (billsEmpty ? '<div class="note-box">Once you add bills here, the Schedule tab will automatically map them out by due date.</div>' : '') +
+      '<div class="table-wrap"><table><thead><tr><th>Name</th><th>Amount</th><th>Frequency</th><th>Due day</th><th>Anchor date</th><th>Active</th><th>Notes</th><th></th></tr></thead><tbody>' +
+        (state.bills || []).map(function (bill) {
+          return '<tr>' +
+            '<td><input class="field bill-name" data-id="' + bill.id + '" value="' + escapeHtml(bill.name) + '" /></td>' +
+            '<td><input class="field bill-amount" data-id="' + bill.id + '" type="number" step="0.01" value="' + bill.defaultAmount + '" /></td>' +
+            '<td><select class="select bill-frequency" data-id="' + bill.id + '"><option value="monthly" ' + (bill.frequency === 'monthly' ? 'selected' : '') + '>Monthly</option><option value="biweekly" ' + (bill.frequency === 'biweekly' ? 'selected' : '') + '>Biweekly</option><option value="semiannual" ' + (bill.frequency === 'semiannual' ? 'selected' : '') + '>Semiannual</option></select></td>' +
+            '<td><input class="field bill-due-day" data-id="' + bill.id + '" type="number" min="1" max="31" value="' + (bill.dueDay || '') + '" /></td>' +
+            '<td><input class="field bill-anchor" data-id="' + bill.id + '" type="date" value="' + (bill.anchorDate || '') + '" /></td>' +
+            '<td><input class="bill-active" data-id="' + bill.id + '" type="checkbox" ' + (bill.active ? 'checked' : '') + ' /></td>' +
+            '<td><input class="field bill-notes" data-id="' + bill.id + '" value="' + escapeHtml(bill.notes || '') + '" /></td>' +
+            '<td><button class="danger-btn delete-bill" data-id="' + bill.id + '">Remove</button></td>' +
+          '</tr>';
+        }).join('') +
+      '</tbody></table></div></div></div>';
 
-function renderBudget() { /* use previous full version in chat if needed */ }
-
-function renderSpending() { /* use previous full version in chat if needed */ }
-
-function renderDeposits() { /* use previous full version in chat if needed */ }
-
-function renderSettings() { /* use previous full version in chat if needed */ }
-
-function updateBillField(id, key, value) {
-  setState(function (currentState) {
-    const copy = clone(currentState);
-    copy.bills = copy.bills.map(b => b.id === id ? Object.assign({}, b, { [key]: value }) : b);
-    return copy;
-  });
-}
-
-function updateScheduleMeta(key, patch) {
-  setState(function (currentState) {
-    const copy = clone(currentState);
-    copy.scheduleMeta[key] = Object.assign({}, copy.scheduleMeta[key] || {}, patch);
-    return copy;
-  });
-}
-
-function updatePayPeriodField(id, key, value) {
-  setState(function (currentState) {
-    const copy = clone(currentState);
-    copy.payPeriods = copy.payPeriods.map(p => p.id === id ? Object.assign({}, p, { [key]: value }) : p);
-    return copy;
-  });
-}
-
-function updateSpendingField(id, key, value) {
-  setState(function (currentState) {
-    const copy = clone(currentState);
-    copy.spending = copy.spending.map(i => i.id === id ? Object.assign({}, i, { [key]: value }) : i);
-    return copy;
-  });
-}
-
-function updateDepositField(id, key, value) {
-  setState(function (currentState) {
-    const copy = clone(currentState);
-    copy.deposits = copy.deposits.map(i => i.id === id ? Object.assign({}, i, { [key]: value }) : i);
-    return copy;
-  });
-}
-
-function renderApp() {
-  renderTabs();
-  renderDashboard();
-  renderBills();
-  renderSchedule();
-  renderBudget();
-  renderSpending();
-  renderDeposits();
-  renderSettings();
-  setTab(activeTab);
-}
-
-document.getElementById('exportBtn').addEventListener('click', function () {
-  downloadJson('budgetflow-backup.json', state);
-});
-
-document.getElementById('seedBtn').addEventListener('click', function () {
-  if (!window.confirm('Reset the app and clear all saved data in this browser?')) return;
-  localStorage.removeItem(STORAGE_KEY);
-  state = clone(defaultData);
-  saveState();
-  renderApp();
-});
-
-document.getElementById('importFile').addEventListener('change', async function (e) {
-  const file = e.target.files && e.target.files[0];
-  if (!file) return;
-  try {
-    const text = await file.text();
-    state = normalizeState(JSON.parse(text));
-    saveState();
-    renderApp();
-  } catch (err) {
-    alert('That backup file could not be read.');
+  function addNewBill() {
+    setState(function (currentState) {
+      const copy = clone(currentState);
+      copy.bills.push({ id: makeId('bill'), name: 'New Bill', defaultAmount: 0, frequency: 'monthly', dueDay: 1, active: true, notes: '' });
+      return copy;
+    });
   }
-  e.target.value = '';
-});
 
-renderApp();
+  const addBillBtn = document.getElementById('addBillBtn');
+  if (addBillBtn) addBillBtn.addEventListener('click', addNewBill);
+
+  const emptyAddBillBtn = document.getElementById('emptyAddBillBtn');
+  if (emptyAddBillBtn) emptyAddBillBtn.addEventListener('click', addNewBill);
+
+  document.querySelectorAll('.bill-name').forEach(el => el.addEventListener('change', e => updateBillField(e.target.dataset.id, 'name', e.target.value)));
+  document.querySelectorAll('.bill-amount').forEach(el => el.addEventListener('change', e => updateBillField(e.target.dataset.id, 'defaultAmount', numberOrZero(e.target.value))));
+  document.querySelectorAll('.bill-frequency').forEach(el => el.addEventListener('change', e => updateBillField(e.target.dataset.id, 'frequency', e.target.value)));
+  document.querySelectorAll('.bill-due-day').forEach(el => el.addEventListener('change', e => updateBillField(e.target.dataset.id, 'dueDay', e.target.value === '' ? '' : numberOrZero(e.target.value))));
+  document.querySelectorAll('.bill-anchor').forEach(el => el.addEventListener('change', e => updateBillField(e.target.dataset.id, 'anchorDate', e.target.value)));
+  document.querySelectorAll('.bill-active').forEach(el => el.addEventListener('change', e => updateBillField(e.target.dataset.id, 'active', e.target.checked)));
+  document.querySelectorAll('.bill-notes').forEach(el => el.addEventListener('change', e => updateBillField(e.target.dataset.id, 'notes', e.target.value)));
+  document.querySelectorAll('.delete-bill').forEach(el => el.addEventListener('click', e => {
+    if (!window.confirm('Remove this bill?')) return;
+    const id = e.target.dataset.id;
+    setState(function (currentState) {
+      const copy = clone(currentState);
+      copy.bills = copy.bills.filter(b => b.id !== id);
+      return copy;
+    });
+  }));
+}
+
+function renderSchedule() {
+  const rows = getFilteredScheduleRows();
+  const hasBills = (state.bills || []).some(bill => bill.active);
+
+  const emptyHtml = !hasBills
+    ? '<div class="panel"><div class="panel-body"><div class="empty-state"><h3>No active bills to schedule</h3><p>Add a bill and leave it active, then BudgetFlow will automatically place it on your schedule based on the due date or recurring pattern.</p><div class="empty-state-actions"><button class="btn" id="scheduleGoBillsBtn">Go to Bills</button></div></div></div></div>'
+    : '';
+
+  document.getElementById('tab-schedule').innerHTML =
+    emptyHtml +
+    '<div class="panel"><div class="panel-head"><div><h2>Schedule</h2><p>Generated from active bills, with paid tracking, custom amounts, and notes.</p></div><div class="controls"><input class="field inline-field" id="scheduleSearch" placeholder="Search bills" value="' + escapeHtml(scheduleSearch) + '" /><label class="checkbox-wrap"><input type="checkbox" id="next30OnlyToggle" ' + (next30Only ? 'checked' : '') + ' />Next 30 days only</label></div></div><div class="panel-body">' +
+      (!hasBills ? '<div class="note-box">Your active bills will appear here automatically once they are added in the Bills tab.</div>' : '') +
+      (hasBills && !rows.length ? '<div class="note-box">No schedule items match the current filters. Try turning off the next 30 days filter or clear the search box.</div>' : '') +
+      '<div class="table-wrap"><table><thead><tr><th>Due date</th><th>Bill</th><th>Amount</th><th>Paid?</th><th>Paid date</th><th>Amount paid</th><th>Note</th><th>Days</th><th>Status</th></tr></thead><tbody>' +
+        rows.map(function (row) {
+          return '<tr>' +
+            '<td>' + escapeHtml(formatDate(row.date)) + '</td>' +
+            '<td>' + escapeHtml(row.billName) + '</td>' +
+            '<td><input class="field schedule-amount" data-key="' + row.key + '" type="number" step="0.01" value="' + row.amount + '" /></td>' +
+            '<td><input class="schedule-paid" data-key="' + row.key + '" type="checkbox" ' + (row.paid ? 'checked' : '') + ' /></td>' +
+            '<td><input class="field schedule-paid-date" data-key="' + row.key + '" type="date" value="' + escapeHtml(row.paidDate || '') + '" /></td>' +
+            '<td><input class="field schedule-amount-paid" data-key="' + row.key + '" type="number" step="0.01" value="' + escapeHtml(row.amountPaid) + '" /></td>' +
+            '<td><input class="field schedule-note" data-key="' + row.key + '" value="' + escapeHtml(row.note || '') + '" /></td>' +
+            '<td>' + row.daysUntilDue + '</td>' +
+            '<td><span class="status ' + getStatusClass(row.status) + '">' + escapeHtml(row.status) + '</span></td>' +
+          '</tr>';
+        }).join('') +
+      '</tbody></table></div></div></div>';
+
+  const search = document.getElementById('scheduleSearch');
+  if (search) search.addEventListener('input', function (e) {
+    scheduleSearch = e.target.value;
+    renderSchedule();
+  });
+
+  const toggle = document.getElementById('next30OnlyToggle');
+  if (toggle) toggle.addEventListener('change', function (e) {
+    next30Only = e.target.checked;
+    renderSchedule();
+  });
+
+  const scheduleGoBillsBtn = document.getElementById('scheduleGoBillsBtn');
+  if (scheduleGoBillsBtn) {
+    scheduleGoBillsBtn.addEventListener('click', function () {
+      activeTab = 'bills';
+      renderApp();
+    });
+  }
+
+  document.querySelectorAll('.schedule-amount').forEach(el => el.addEventListener('change', e => updateScheduleMeta(e.target.dataset.key, { customAmount: numberOrZero(e.target.value) })));
+  document.querySelectorAll('.schedule-paid').forEach(el => el.addEventListener('change', e => updateScheduleMeta(e.target.dataset.key, { paid: e.target.checked, paidDate: e.target.checked ? getTodayISO() : '' })));
+  document.querySelectorAll('.schedule-paid-date').forEach(el => el.addEventListener('change', e => updateScheduleMeta(e.target.dataset.key, { paidDate: e.target.value })));
+  document.querySelectorAll('.schedule-amount-paid').forEach(el => el.addEventListener('change', e => updateScheduleMeta(e.target.dataset.key, { amountPaid: e.target.value })));
+  document.querySelectorAll('.schedule-note').forEach(el => el.addEventListener('change', e => updateScheduleMeta(e.target.dataset.key, { note: e.target.value })));
+}
+
+function renderBudget() {
+  const rows = getBudgetRows().slice().sort((a, b) => b.payDate.localeCompare(a.payDate));
+  const today = getTodayISO();
+  const noRealPeriods = rows.length === 1 &&
+    (state.bills || []).length === 0 &&
+    (state.spending || []).length === 0 &&
+    (state.deposits || []).length === 0 &&
+    numberOrZero(rows[0].income) === 0 &&
+    numberOrZero(state.settings.openingBalance) === 0;
+
+  function renderBudgetPeriod(row, options) {
+    const openAttr = options && options.open ? ' open' : '';
+    return '<details class="budget-period"' + openAttr + '><summary class="budget-summary"><div class="budget-summary-main"><h3>' + formatCompactDate(row.payDate) + ' pay period</h3><p class="muted">' + formatCompactDate(row.windowStart) + ' to ' + formatCompactDate(row.windowEnd) + '</p></div><div class="budget-kpis"><div class="budget-kpi"><div class="label">Income</div><div class="value">' + formatMoney(row.income) + '</div></div><div class="budget-kpi"><div class="label">Bills</div><div class="value">' + formatMoney(row.billsScheduled) + '</div></div><div class="budget-kpi"><div class="label">Spending</div><div class="value">' + formatMoney(row.otherSpending) + '</div></div><div class="budget-kpi"><div class="label">Leftover</div><div class="value">' + formatMoney(row.endingBalance) + '</div></div></div></summary><div class="budget-detail"><div class="table-wrap"><table><thead><tr><th>Pay date</th><th>Window</th><th>Starting balance</th><th>Income</th><th>Deposits</th><th>Bills scheduled</th><th>Bills paid</th><th>Other spending</th><th>Total out</th><th>Ending balance</th><th>Rollover</th><th>Bank balance</th><th>Variance</th><th>Reconciled?</th></tr></thead><tbody><tr><td><input class="field pay-date" data-id="' + row.id + '" type="date" value="' + row.payDate + '" /></td><td>' + formatCompactDate(row.windowStart) + ' to ' + formatCompactDate(row.windowEnd) + '</td><td><input class="field pay-starting-balance" data-id="' + row.id + '" type="number" step="0.01" value="' + escapeHtml(row.startingBalanceOverride === '' || row.startingBalanceOverride == null ? '' : row.startingBalanceOverride) + '" placeholder="' + row.startingBalance.toFixed(2) + '" /></td><td><input class="field pay-income" data-id="' + row.id + '" type="number" step="0.01" value="' + row.income + '" /></td><td>' + formatMoney(row.deposits) + '</td><td>' + formatMoney(row.billsScheduled) + '</td><td>' + formatMoney(row.billsPaid) + '</td><td>' + formatMoney(row.otherSpending) + '</td><td>' + formatMoney(row.totalOut) + '</td><td>' + formatMoney(row.endingBalance) + '</td><td>' + formatMoney(row.rollover) + '</td><td><input class="field pay-bank-balance" data-id="' + row.id + '" type="number" step="0.01" value="' + escapeHtml(row.bankBalance) + '" /></td><td>' + (row.variance === '' ? '—' : formatMoney(row.variance)) + '</td><td><input class="pay-reconciled" data-id="' + row.id + '" type="checkbox" ' + (row.reconciled ? 'checked' : '') + ' /></td></tr></tbody></table></div></div></details>';
+  }
+
+  const stackMarkup = rows.length
+    ? rows.map(function (row) {
+        const isCurrent = today >= row.windowStart && today <= row.windowEnd;
+        return renderBudgetPeriod(row, { open: isCurrent });
+      }).join('')
+    : '<div class="note-box">No pay periods yet.</div>';
+
+  document.getElementById('tab-budget').innerHTML =
+    (noRealPeriods
+      ? '<div class="panel"><div class="panel-body"><div class="empty-state"><h3>Start your first pay period</h3><p>BudgetFlow begins with one starter period. Set your income and opening balance here, then add more periods as time moves forward.</p><div class="empty-state-actions"><button class="btn" id="budgetFocusCurrentBtn">Set up current period</button></div></div></div></div>'
+      : '') +
+    '<div class="panel"><div class="panel-head"><div><h2>Budget Tracker</h2><p>Newest periods stay at the top, and the current period opens by default.</p></div><div class="controls"><button class="btn" id="addPayPeriodBtn">Start New Period</button></div></div><div class="panel-body"><div class="budget-stack">' + stackMarkup + '</div></div></div>';
+
+  const add = document.getElementById('addPayPeriodBtn');
+  if (add) add.addEventListener('click', function () {
+    setState(function (currentState) {
+      const copy = clone(currentState);
+      const sorted = copy.payPeriods.slice().sort((a, b) => sortByDate(a.payDate, b.payDate));
+      const last = sorted[sorted.length - 1];
+      const nextDate = last ? toISODate(addDays(parseISODate(last.payDate), 14)) : getTodayISO();
+      const copyIncomeForward = copy.settings.copyPreviousIncome !== false;
+      const fallbackIncome = numberOrZero(copy.settings.defaultIncome);
+      let nextIncome = fallbackIncome;
+      if (copyIncomeForward && last) nextIncome = numberOrZero(last.income);
+      copy.payPeriods.push({ id: makeId('period'), payDate: nextDate, income: nextIncome, bankBalance: '', reconciled: false, startingBalanceOverride: '' });
+      return copy;
+    });
+  });
+
+  const budgetFocusCurrentBtn = document.getElementById('budgetFocusCurrentBtn');
+  if (budgetFocusCurrentBtn) {
+    budgetFocusCurrentBtn.addEventListener('click', function () {
+      const firstDetails = document.querySelector('.budget-period');
+      if (firstDetails) firstDetails.open = true;
+    });
+  }
+
+  document.querySelectorAll('.pay-date').forEach(el => el.addEventListener('change', e => updatePayPeriodField(e.target.dataset.id, 'payDate', e.target.value)));
+  document.querySelectorAll('.pay-income').forEach(el => el.addEventListener('change', e => updatePayPeriodField(e.target.dataset.id, 'income', numberOrZero(e.target.value))));
+  document.querySelectorAll('.pay-starting-balance').forEach(el => el.addEventListener('change', e => updatePayPeriodField(e.target.dataset.id, 'startingBalanceOverride', e.target.value)));
+  document.querySelectorAll('.pay-bank-balance').forEach(el => el.addEventListener('change', e => updatePayPeriodField(e.target.dataset.id, 'bankBalance', e.target.value)));
+  document.querySelectorAll('.pay-reconciled').forEach(el => el.addEventListener('change', e => updatePayPeriodField(e.target.dataset.id, 'reconciled', e.target.checked)));
+}
+
+function renderSpending() {
+  const rows = (state.spending || []).slice().sort((a, b) => sortByDate(a.date, b.date));
+  const payPeriods = (state.payPeriods || []).slice().sort((a, b) => b.payDate.localeCompare(a.payDate));
+  const groups = payPeriods.map(function (period) {
+    const start = period.payDate;
+    const end = toISODate(addDays(parseISODate(period.payDate), 13));
+    const items = rows.filter(item => item.date >= start && item.date <= end);
+    const total = items.reduce((sum, item) => item.charged ? sum + numberOrZero(item.amount) : sum, 0);
+    return { id: period.id, payDate: period.payDate, windowStart: start, windowEnd: end, items, total };
+  });
+  const outsideRange = rows.filter(item => !getPayPeriodForDate(item.date, payPeriods));
+  const hasAnySpending = rows.length > 0;
+
+  document.getElementById('tab-spending').innerHTML =
+    (!hasAnySpending
+      ? '<div class="panel"><div class="panel-body"><div class="empty-state"><h3>No spending logged yet</h3><p>Track the extra purchases that happen inside each pay period. Use the add button on a period card to drop spending directly into the right place.</p><div class="empty-state-actions"><button class="btn" id="spendingGoBudgetBtn">Go to Budget Tracker</button></div></div></div></div>'
+      : '') +
+    '<div class="panel"><div class="panel-head"><div><h2>Other Spending</h2><p>Spending is grouped by each pay period so it is easier to track what belongs where.</p></div></div><div class="panel-body">' +
+      (!hasAnySpending ? '<div class="note-box">Each pay period has its own add spending button, so your extra expenses stay organized by period.</div>' : '') +
+      '<div class="period-list">' +
+        groups.map(function (group) {
+          return '<div class="period-card"><div class="period-head"><div><h3>' + formatCompactDate(group.payDate) + ' pay period</h3><p class="muted">' + formatCompactDate(group.windowStart) + ' to ' + formatCompactDate(group.windowEnd) + '</p></div><div class="controls"><div class="muted">Tracked spending: ' + formatMoney(group.total) + '</div><button class="mini-btn add-spending-for-period" data-period-id="' + group.id + '">+ Add spending</button></div></div>' +
+            (group.items.length
+              ? '<div class="table-wrap"><table><thead><tr><th>Date</th><th>Company</th><th>Amount</th><th>Charged?</th><th>Comments</th><th></th></tr></thead><tbody>' +
+                  group.items.map(function (item) {
+                    return '<tr><td><input class="field spend-date" data-id="' + item.id + '" type="date" value="' + item.date + '" /></td><td><input class="field spend-company" data-id="' + item.id + '" value="' + escapeHtml(item.company) + '" /></td><td><input class="field spend-amount" data-id="' + item.id + '" type="number" step="0.01" value="' + item.amount + '" /></td><td><input class="spend-charged" data-id="' + item.id + '" type="checkbox" ' + (item.charged ? 'checked' : '') + ' /></td><td><input class="field spend-comments" data-id="' + item.id + '" value="' + escapeHtml(item.comments || '') + '" /></td><td><button class="danger-btn delete-spend" data-id="' + item.id + '">Remove</button></td></tr>';
+                  }).join('') +
+                '</tbody></table></div>'
+              : '<div class="note-box">No extra spending added for this pay period yet.</div>') +
+          '</div>';
+        }).join('') +
+        (outsideRange.length
+          ? '<div class="period-card"><div class="period-head"><div><h3>Outside current pay periods</h3><p class="muted">These entries do not currently land inside one of the pay period windows.</p></div></div><div class="table-wrap"><table><thead><tr><th>Date</th><th>Company</th><th>Amount</th><th>Charged?</th><th>Comments</th><th></th></tr></thead><tbody>' +
+              outsideRange.map(function (item) {
+                return '<tr><td><input class="field spend-date" data-id="' + item.id + '" type="date" value="' + item.date + '" /></td><td><input class="field spend-company" data-id="' + item.id + '" value="' + escapeHtml(item.company) + '" /></td><td><input class="field spend-amount" data-id="' + item.id + '" type="number" step="0.01" value="' + item.amount + '" /></td><td><input class="spend-charged" data-id="' + item.id + '" type="checkbox" ' + (item.charged ? 'checked' : '') + ' /></td><td><input class="field spend-comments" data-id="' + item.id + '" value="' + escapeHtml(item.comments || '') + '" /></td><td><button class="danger-btn delete-spend" data-id="' + item.id + '">Remove</button></td></tr>';
+              }).join('') +
+            '</tbody></table></div></div>'
+          : '') +
+      '</div></div></div>';
+
+  const spendingGoBudgetBtn = document.getElementById('spendingGoBudgetBtn');
+  if (spendingGoBudgetBtn) {
+    spendingGoBudgetBtn.addEventListener('click', function () {
+      activeTab = 'budget';
+      renderApp();
+    });
+  }
+
+  document.querySelectorAll('.add-spending-for-period').forEach(function (el) {
+    el.addEventListener('click', function (e) {
+      const periodId = e.target.dataset.periodId;
+      const period = (state.payPeriods || []).find(p => p.id === periodId);
+      if (!period) return;
+      setState(function (currentState) {
+        const copy = clone(currentState);
+        copy.spending.push({ id: makeId('sp'), date: period.payDate, company: '', amount: 0, charged: true, comments: '' });
+        return copy;
+      });
+    });
+  });
+
+  document.querySelectorAll('.spend-date').forEach(el => el.addEventListener('change', e => updateSpendingField(e.target.dataset.id, 'date', e.target.value)));
+  document.querySelectorAll('.spend-company').forEach(el => el.addEventListener('change', e => updateSpendingField(e.target.dataset.id, 'company', e.target.value)));
+  document.querySelectorAll('.spend-amount').forEach(el => el.addEventListener('change', e => updateSpendingField(e.target.dataset.id, 'amount', numberOrZero(e.target.value))));
+  document.querySelectorAll('.spend-charged').forEach(el => el.addEventListener('change', e => updateSpendingField(e.target.dataset.id, 'charged', e.target.checked)));
+  document.querySelectorAll('.spend-comments').forEach(el => el.addEventListener('change', e => updateSpendingField(e.target.dataset.id, 'comments', e.target.value)));
+  document.querySelectorAll('.delete-spend').forEach(el => el.addEventListener('click', e => {
+    if (!window.confirm('Remove this spending row?')) return;
+    const id = e.target.dataset.id;
+    setState(function (currentState) {
+      const copy = clone(currentState);
+      copy.spending = copy.spending.filter(item => item.id !== id);
+      return copy;
+    });
+  }));
+}
+
+function renderDeposits() {
+  const rows = (state.deposits || []).slice().sort((a, b) => sortByDate(a.date, b.date));
+  const payPeriods = (state.payPeriods || []).slice().sort((a, b) => b.payDate.localeCompare(a.payDate));
+  const groups = payPeriods.map(function (period) {
+    const start = period.payDate;
+    const end = toISODate(addDays(parseISODate(period.payDate), 13));
