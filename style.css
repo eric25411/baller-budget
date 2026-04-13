@@ -391,6 +391,46 @@ tbody tr:hover {
   line-height: 1.6;
   font-size: 14px;
 }
+.empty-state {
+  display: grid;
+  gap: 12px;
+  padding: 22px;
+  text-align: left;
+}
+
+.empty-state h3 {
+  font-size: 20px;
+  color: var(--text);
+}
+
+.empty-state p {
+  color: var(--muted);
+  max-width: 760px;
+  line-height: 1.65;
+}
+
+.empty-state-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.empty-state-steps {
+  display: grid;
+  gap: 8px;
+  margin-top: 4px;
+  color: var(--muted);
+}
+
+.empty-state-step {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.empty-state-step strong {
+  color: var(--text);
+}
 
 .period-head {
   display: flex;
