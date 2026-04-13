@@ -758,7 +758,65 @@ tbody tr:hover {
   .budget-period {
     border-radius: 20px;
   }
+@media (max-width: 768px) {
+  /* 1. Hide the desktop headers */
+  thead {
+    display: none;
+  }
 
+  /* 2. Turn rows into cards */
+  tr {
+    display: grid;
+    grid-template-columns: 1fr 1fr; /* Two-column layout for the card details */
+    gap: 8px;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    margin-bottom: 16px;
+    padding: 16px;
+    border-radius: 20px;
+    box-shadow: var(--shadow);
+  }
+
+  /* 3. Make cells behave like labels/values */
+  td {
+    display: flex;
+    flex-direction: column;
+    border: none !important;
+    padding: 4px 0 !important;
+    text-align: left !important;
+  }
+
+  /* 4. Pull the label from the data-label attribute */
+  td::before {
+    content: attr(data-label);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--muted);
+    margin-bottom: 4px;
+  }
+
+  /* 5. Special handling for the first cell (The Name) */
+  td[data-label="Name"] {
+    grid-column: span 2; /* Make the title take up the full card width */
+    border-bottom: 1px solid var(--line) !important;
+    padding-bottom: 10px !important;
+    margin-bottom: 8px;
+  }
+
+  td[data-label="Name"] strong {
+    font-size: 18px;
+    color: var(--accent);
+  }
+
+  /* 6. Ensure the Actions button stays tucked away */
+  td[data-label="Actions"] {
+    grid-column: span 2;
+    padding-top: 10px !important;
+    border-top: 1px solid var(--line) !important;
+    align-items: flex-start;
+  }
+}
   .budget-detail {
     padding: 0;
   }
