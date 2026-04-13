@@ -652,3 +652,114 @@ tbody tr:hover {
     width: 100%;
   }
 }
+@media (max-width: 768px) {
+  .app {
+    padding: 12px;
+  }
+
+  .hero {
+    padding: 18px;
+    border-radius: 20px;
+  }
+
+  .hero-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  .hero-copy h1 {
+    font-size: 48px;
+    line-height: 1;
+  }
+
+  .hero-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 10px;
+    width: 100%;
+  }
+
+  .hero-actions .btn,
+  .hero-actions .ghost-btn,
+  .hero-actions .upload-label {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .tabs {
+    overflow-x: auto;
+    gap: 8px;
+    padding-bottom: 4px;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .tab-btn {
+    flex: 0 0 auto;
+    white-space: nowrap;
+  }
+
+  .grid-two {
+    grid-template-columns: 1fr;
+  }
+
+  .stats {
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+
+  .budget-kpis {
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+
+  .budget-summary {
+    display: block;
+  }
+
+  .budget-summary-main {
+    margin-bottom: 16px;
+  }
+
+  .table-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  table {
+    min-width: 900px;
+  }
+
+  .period-head,
+  .panel-head {
+    display: block;
+  }
+
+  .period-head .controls,
+  .panel-head .controls {
+    margin-top: 12px;
+  }
+
+  .next-item {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+}
+
+@media (max-width: 520px) {
+  .hero-copy h1 {
+    font-size: 40px;
+  }
+
+  .stats,
+  .budget-kpis {
+    grid-template-columns: 1fr;
+  }
+
+  .budget-period {
+    border-radius: 20px;
+  }
+
+  .budget-detail {
+    padding: 0;
+  }
+}
