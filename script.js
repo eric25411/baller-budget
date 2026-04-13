@@ -193,37 +193,6 @@ function renderSchedule() {
     </table></div>`;
 }
 
-function renderSpending() {
-  const container = document.getElementById('tab-spending');
-  const today = toISODate(new Date());
-  container.innerHTML = `
-    <div class="panel">
-        <input type="text" id="spDesc" class="field" placeholder="Description">
-        <input type="number" id="spAmt" class="field" placeholder="$">
-        <input type="date" id="spDate" class="field" value="${today}">
-        <button class="btn" onclick="addSpending()">Add Expense</button>
-    </div>
-    <div class="table-wrap"><table>
-      <tbody>${state.spending.sort((a,b)=>b.date.localeCompare(a.date)).map(s => `<tr><td>${s.date}</td><td>${s.description}</td><td>${formatMoney(s.amount)}</td><td><button class="mini-btn danger-btn" onclick="deleteItem('spending','${s.id}')">Del</button></td></tr>`).join('')}</tbody>
-    </table></div>`;
-}
-
-function renderDeposits() {
-  const container = document.getElementById('tab-deposits');
-  const today = toISODate(new Date());
-  container.innerHTML = `
-    <div class="panel">
-        <input type="text" id="dpDesc" class="field" placeholder="Source">
-        <input type="number" id="dpAmt" class="field" placeholder="$">
-        <input type="date" id="dpDate" class="field" value="${today}">
-        <button class="btn" onclick="addDeposit()">Add Income</button>
-    </div>
-    <div class="table-wrap"><table>
-      <tbody>${state.deposits.sort((a,b)=>b.date.localeCompare(a.date)).map(d => `<tr><td>${d.date}</td><td>${d.description}</td><td>${formatMoney(d.amount)}</td><td><button class="mini-btn danger-btn" onclick="deleteItem('deposits','${d.id}')">Del</button></td></tr>`).join('')}</tbody>
-    </table></div>`;
-}
-
-// Remaining render functions (Bills, Budget, Settings) stay exactly the same as before...
 function renderBudget() {
   const stats = calculatePeriodStats(currentPeriodOffset);
   const startStr = stats.start.toLocaleDateString('en-US', {month:'short', day:'2-digit'});
@@ -273,15 +242,55 @@ function renderBills() {
     </table></div>`;
 }
 
+function renderSpending() {
+  const container = document.getElementById('tab-spending');
+  const today = toISODate(new Date());
+  container.innerHTML = `
+    <div class="panel">
+        <input type="text" id="spDesc" class="field" placeholder="Description">
+        <input type="number" id="spAmt" class="field" placeholder="$">
+        <input type="date" id="spDate" class="field" value="${today}">
+        <button class="btn" onclick="addSpending()">Add Expense</button>
+    </div>
+    <div class="table-wrap"><table>
+      <tbody>${state.spending.sort((a,b)=>b.date.localeCompare(a.date)).map(s => `<tr><td>${s.date}</td><td>${s.description}</td><td>${formatMoney(s.amount)}</td><td><button class="mini-btn danger-btn" onclick="deleteItem('spending','${s.id}')">Del</button></td></tr>`).join('')}</tbody>
+    </table></div>`;
+}
+
+function renderDeposits() {
+  const container = document.getElementById('tab-deposits');
+  const today = toISODate(new Date());
+  container.innerHTML = `
+    <div class="panel">
+        <input type="text" id="dpDesc" class="field" placeholder="Source">
+        <input type="number" id="dpAmt" class="field" placeholder="$">
+        <input type="date" id="dpDate" class="field" value="${today}">
+        <button class="btn" onclick="addDeposit()">Add Income</button>
+    </div>
+    <div class="table-wrap"><table>
+      <tbody>${state.deposits.sort((a,b)=>b.date.localeCompare(a.date)).map(d => `<tr><td>${d.date}</td><td>${d.description}</td><td>${formatMoney(d.amount)}</td><td><button class="mini-btn danger-btn" onclick="deleteItem('deposits','${d.id}')">Del</button></td></tr>`).join('')}</tbody>
+    </table></div>`;
+}
+
 function renderSettings() {
   const container = document.getElementById('tab-settings');
   container.innerHTML = `
-    <div class="panel"><div class="panel-head"><h2>Settings</h2></div>
+    <div class="panel"><div class="panel-head"><h2>Account Settings</h2></div>
       <div class="stack">
         <label>Your Name</label><input type="text" class="field" value="${state.userName}" onchange="state.userName=this.value;saveState()">
+        <label>Starting Balance (Total Cash)</label><input type="number" class="field" value="${state.settings.initialBalance}" onchange="state.settings.initialBalance=parseFloat(this.value)||0;saveState()">
         <label>Cycle Start Date</label><input type="date" class="field" value="${state.settings.anchorDate}" onchange="state.settings.anchorDate=this.value;saveState()">
         <label>Cycle Length (Days)</label><input type="number" class="field" value="${state.settings.periodDays}" onchange="state.settings.periodDays=this.value;saveState()">
       </div>
+    </div>
+    <div class="panel">
+        <div class="panel-head"><h2>Data Management</h2></div>
+        <div class="stack" style="gap:10px">
+            <button class="btn" style="background:#34495e" onclick="exportData()">Download Backup</button>
+            <button class="btn" style="background:#7f8c8d" onclick="document.getElementById('importFile').click()">Import Backup</button>
+            <input type="file" id="importFile" class="hidden" onchange="importData(event)">
+            <button class="btn danger-btn" onclick="if(confirm('Erase all data?')) { state=clone(defaultData); saveState(); }">Reset App</button>
+        </div>
     </div>`;
 }
 
@@ -305,6 +314,28 @@ function addDeposit() {
   if (!d || isNaN(a) || !dt) return;
   state.deposits.push({ id: makeId('dp'), description: d, amount: a, date: dt });
   saveState();
+}
+
+function exportData() {
+  const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(state));
+  const dl = document.createElement('a'); dl.setAttribute("href", dataStr); dl.setAttribute("download", `budget_backup_${toISODate(new Date())}.json`); dl.click();
+}
+
+function importData(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        try {
+            const data = JSON.parse(e.target.result);
+            if (data.bills && data.settings) {
+                state = data;
+                saveState();
+                alert("Backup restored!");
+            }
+        } catch(err) { alert("Error reading backup file."); }
+    };
+    reader.readAsText(file);
 }
 
 function renderApp() {
