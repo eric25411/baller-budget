@@ -465,14 +465,15 @@ function renderBills() {
   document.querySelectorAll('.bill-anchor').forEach(el => el.addEventListener('change', e => updateBillField(e.target.dataset.id, 'anchorDate', e.target.value)));
   document.querySelectorAll('.bill-active').forEach(el => el.addEventListener('change', e => updateBillField(e.target.dataset.id, 'active', e.target.checked)));
   document.querySelectorAll('.bill-notes').forEach(el => el.addEventListener('change', e => updateBillField(e.target.dataset.id, 'notes', e.target.value)));
-  document.querySelectorAll('.delete-bill').forEach(el => el.addEventListener('click', e => {
-    const id = e.target.dataset.id;
-    setState(function (currentState) {
-      const copy = clone(currentState);
-      copy.bills = copy.bills.filter(b => b.id !== id);
-      return copy;
-    });
-  }));
+document.querySelectorAll('.delete-bill').forEach(el => el.addEventListener('click', e => {
+  if (!window.confirm('Remove this bill?')) return;
+  const id = e.target.dataset.id;
+  setState(function (currentState) {
+    const copy = clone(currentState);
+    copy.bills = copy.bills.filter(b => b.id !== id);
+    return copy;
+  });
+}));
 }
 
 function renderSchedule() {
@@ -640,14 +641,15 @@ function renderSpending() {
   document.querySelectorAll('.spend-amount').forEach(el => el.addEventListener('change', e => updateSpendingField(e.target.dataset.id, 'amount', numberOrZero(e.target.value))));
   document.querySelectorAll('.spend-charged').forEach(el => el.addEventListener('change', e => updateSpendingField(e.target.dataset.id, 'charged', e.target.checked)));
   document.querySelectorAll('.spend-comments').forEach(el => el.addEventListener('change', e => updateSpendingField(e.target.dataset.id, 'comments', e.target.value)));
-  document.querySelectorAll('.delete-spend').forEach(el => el.addEventListener('click', e => {
-    const id = e.target.dataset.id;
-    setState(function (currentState) {
-      const copy = clone(currentState);
-      copy.spending = copy.spending.filter(item => item.id !== id);
-      return copy;
-    });
-  }));
+document.querySelectorAll('.delete-spend').forEach(el => el.addEventListener('click', e => {
+  if (!window.confirm('Remove this spending row?')) return;
+  const id = e.target.dataset.id;
+  setState(function (currentState) {
+    const copy = clone(currentState);
+    copy.spending = copy.spending.filter(item => item.id !== id);
+    return copy;
+  });
+}));
 }
 
 function renderDeposits() {
@@ -708,13 +710,14 @@ function renderDeposits() {
   document.querySelectorAll('.deposit-amount').forEach(el => el.addEventListener('change', e => updateDepositField(e.target.dataset.id, 'amount', numberOrZero(e.target.value))));
   document.querySelectorAll('.deposit-comments').forEach(el => el.addEventListener('change', e => updateDepositField(e.target.dataset.id, 'comments', e.target.value)));
   document.querySelectorAll('.delete-deposit').forEach(el => el.addEventListener('click', e => {
-    const id = e.target.dataset.id;
-    setState(function (currentState) {
-      const copy = clone(currentState);
-      copy.deposits = copy.deposits.filter(item => item.id !== id);
-      return copy;
-    });
-  }));
+  if (!window.confirm('Remove this deposit row?')) return;
+  const id = e.target.dataset.id;
+  setState(function (currentState) {
+    const copy = clone(currentState);
+    copy.deposits = copy.deposits.filter(item => item.id !== id);
+    return copy;
+  });
+}));
 }
 
 function updateBillField(id, key, value) {
@@ -773,6 +776,7 @@ document.getElementById('exportBtn').addEventListener('click', function () {
 });
 
 document.getElementById('seedBtn').addEventListener('click', function () {
+  if (!window.confirm('Reset the app and clear all saved data in this browser?')) return;
   localStorage.removeItem(STORAGE_KEY);
   state = clone(defaultData);
   saveState();
