@@ -427,8 +427,20 @@ function renderDashboard() {
 }
 
 function renderBills() {
+  const billsEmpty = !(state.bills || []).length;
+  const emptyHtml = billsEmpty
+    ? '<div class="panel"><div class="panel-body"><div class="empty-state">' +
+        '<h3>No bills yet</h3>' +
+        '<p>Add your recurring bills here so BudgetFlow can build your schedule and show what is coming up next.</p>' +
+        '<div class="empty-state-actions"><button class="btn" id="emptyAddBillBtn">Add your first bill</button></div>' +
+      '</div></div></div>'
+    : '';
+
   document.getElementById('tab-bills').innerHTML =
-    '<div class="panel"><div class="panel-head"><div><h2>Bills</h2><p>Your recurring bill list.</p></div><div class="controls"><button class="btn" id="addBillBtn">Add bill</button></div></div><div class="panel-body"><div class="table-wrap"><table><thead><tr><th>Name</th><th>Amount</th><th>Frequency</th><th>Due day</th><th>Anchor date</th><th>Active</th><th>Notes</th><th></th></tr></thead><tbody>' +
+    emptyHtml +
+    '<div class="panel"><div class="panel-head"><div><h2>Bills</h2><p>Your recurring bill list.</p></div><div class="controls"><button class="btn" id="addBillBtn">Add bill</button></div></div><div class="panel-body">' +
+    (billsEmpty ? '<div class="note-box">Once you add bills here, the Schedule tab will automatically map them out by due date.</div>' : '') +
+    '<div class="table-wrap"><table><thead><tr><th>Name</th><th>Amount</th><th>Frequency</th><th>Due day</th><th>Anchor date</th><th>Active</th><th>Notes</th><th></th></tr></thead><tbody>' +
     (state.bills || []).map(function (bill) {
       return '<tr>' +
         '<td><input class="field bill-name" data-id="' + bill.id + '" value="' + escapeHtml(bill.name) + '" /></td>' +
@@ -447,16 +459,37 @@ function renderBills() {
     }).join('') +
     '</tbody></table></div></div></div>';
 
-  const addBillBtn = document.getElementById('addBillBtn');
-  if (addBillBtn) {
-    addBillBtn.addEventListener('click', function () {
-      setState(function (currentState) {
-        const copy = clone(currentState);
-        copy.bills.push({ id: makeId('bill'), name: 'New Bill', defaultAmount: 0, frequency: 'monthly', dueDay: 1, active: true, notes: '' });
-        return copy;
-      });
+  function addNewBill() {
+    setState(function (currentState) {
+      const copy = clone(currentState);
+      copy.bills.push({ id: makeId('bill'), name: 'New Bill', defaultAmount: 0, frequency: 'monthly', dueDay: 1, active: true, notes: '' });
+      return copy;
     });
   }
+
+  const addBillBtn = document.getElementById('addBillBtn');
+  if (addBillBtn) addBillBtn.addEventListener('click', addNewBill);
+
+  const emptyAddBillBtn = document.getElementById('emptyAddBillBtn');
+  if (emptyAddBillBtn) emptyAddBillBtn.addEventListener('click', addNewBill);
+
+  document.querySelectorAll('.bill-name').forEach(el => el.addEventListener('change', e => updateBillField(e.target.dataset.id, 'name', e.target.value)));
+  document.querySelectorAll('.bill-amount').forEach(el => el.addEventListener('change', e => updateBillField(e.target.dataset.id, 'defaultAmount', numberOrZero(e.target.value))));
+  document.querySelectorAll('.bill-frequency').forEach(el => el.addEventListener('change', e => updateBillField(e.target.dataset.id, 'frequency', e.target.value)));
+  document.querySelectorAll('.bill-due-day').forEach(el => el.addEventListener('change', e => updateBillField(e.target.dataset.id, 'dueDay', e.target.value === '' ? '' : numberOrZero(e.target.value))));
+  document.querySelectorAll('.bill-anchor').forEach(el => el.addEventListener('change', e => updateBillField(e.target.dataset.id, 'anchorDate', e.target.value)));
+  document.querySelectorAll('.bill-active').forEach(el => el.addEventListener('change', e => updateBillField(e.target.dataset.id, 'active', e.target.checked)));
+  document.querySelectorAll('.bill-notes').forEach(el => el.addEventListener('change', e => updateBillField(e.target.dataset.id, 'notes', e.target.value)));
+  document.querySelectorAll('.delete-bill').forEach(el => el.addEventListener('click', e => {
+    if (!window.confirm('Remove this bill?')) return;
+    const id = e.target.dataset.id;
+    setState(function (currentState) {
+      const copy = clone(currentState);
+      copy.bills = copy.bills.filter(b => b.id !== id);
+      return copy;
+    });
+  }));
+}
 
   document.querySelectorAll('.bill-name').forEach(el => el.addEventListener('change', e => updateBillField(e.target.dataset.id, 'name', e.target.value)));
   document.querySelectorAll('.bill-amount').forEach(el => el.addEventListener('change', e => updateBillField(e.target.dataset.id, 'defaultAmount', numberOrZero(e.target.value))));
@@ -478,8 +511,21 @@ document.querySelectorAll('.delete-bill').forEach(el => el.addEventListener('cli
 
 function renderSchedule() {
   const rows = getFilteredScheduleRows();
+  const hasBills = (state.bills || []).some(bill => bill.active);
+  const emptyHtml = !hasBills
+    ? '<div class="panel"><div class="panel-body"><div class="empty-state">' +
+        '<h3>No active bills to schedule</h3>' +
+        '<p>Add a bill and leave it active, then BudgetFlow will automatically place it on your schedule based on the due date or recurring pattern.</p>' +
+        '<div class="empty-state-actions"><button class="btn" id="scheduleGoBillsBtn">Go to Bills</button></div>' +
+      '</div></div></div>'
+    : '';
+
   document.getElementById('tab-schedule').innerHTML =
-    '<div class="panel"><div class="panel-head"><div><h2>Schedule</h2><p>Generated from active bills, with paid tracking, custom amounts, and notes.</p></div><div class="controls"><input class="field inline-field" id="scheduleSearch" placeholder="Search bills" value="' + escapeHtml(scheduleSearch) + '" /><label class="checkbox-wrap"><input type="checkbox" id="next30OnlyToggle" ' + (next30Only ? 'checked' : '') + ' />Next 30 days only</label></div></div><div class="panel-body"><div class="table-wrap"><table><thead><tr><th>Due date</th><th>Bill</th><th>Amount</th><th>Paid?</th><th>Paid date</th><th>Amount paid</th><th>Note</th><th>Days</th><th>Status</th></tr></thead><tbody>' +
+    emptyHtml +
+    '<div class="panel"><div class="panel-head"><div><h2>Schedule</h2><p>Generated from active bills, with paid tracking, custom amounts, and notes.</p></div><div class="controls"><input class="field inline-field" id="scheduleSearch" placeholder="Search bills" value="' + escapeHtml(scheduleSearch) + '" /><label class="checkbox-wrap"><input type="checkbox" id="next30OnlyToggle" ' + (next30Only ? 'checked' : '') + ' />Next 30 days only</label></div></div><div class="panel-body">' +
+    (!hasBills ? '<div class="note-box">Your active bills will appear here automatically once they are added in the Bills tab.</div>' : '') +
+    (hasBills && !rows.length ? '<div class="note-box">No schedule items match the current filters. Try turning off the next 30 days filter or clear the search box.</div>' : '') +
+    '<div class="table-wrap"><table><thead><tr><th>Due date</th><th>Bill</th><th>Amount</th><th>Paid?</th><th>Paid date</th><th>Amount paid</th><th>Note</th><th>Days</th><th>Status</th></tr></thead><tbody>' +
     rows.map(function (row) {
       return '<tr>' +
         '<td>' + escapeHtml(formatDate(row.date)) + '</td>' +
@@ -497,8 +543,16 @@ function renderSchedule() {
 
   const search = document.getElementById('scheduleSearch');
   if (search) search.addEventListener('input', function (e) { scheduleSearch = e.target.value; renderSchedule(); });
+
   const toggle = document.getElementById('next30OnlyToggle');
   if (toggle) toggle.addEventListener('change', function (e) { next30Only = e.target.checked; renderSchedule(); });
+
+  const scheduleGoBillsBtn = document.getElementById('scheduleGoBillsBtn');
+  if (scheduleGoBillsBtn) scheduleGoBillsBtn.addEventListener('click', function () {
+    activeTab = 'bills';
+    renderApp();
+  });
+
   document.querySelectorAll('.schedule-amount').forEach(el => el.addEventListener('change', e => updateScheduleMeta(e.target.dataset.key, { customAmount: numberOrZero(e.target.value) })));
   document.querySelectorAll('.schedule-paid').forEach(el => el.addEventListener('change', e => updateScheduleMeta(e.target.dataset.key, { paid: e.target.checked, paidDate: e.target.checked ? getTodayISO() : '' })));
   document.querySelectorAll('.schedule-paid-date').forEach(el => el.addEventListener('change', e => updateScheduleMeta(e.target.dataset.key, { paidDate: e.target.value })));
@@ -591,7 +645,7 @@ function renderSpending() {
   const outsideRange = rows.filter(item => !getPayPeriodForDate(item.date, payPeriods));
 
   document.getElementById('tab-spending').innerHTML =
-    '<div class="panel"><div class="panel-head"><div><h2>Other Spending</h2><p>Spending is grouped by each pay period so it is easier to track what belongs where.</p></div></div><div class="panel-body"><div class="period-list">' +
+  (!hasAnySpending ? '<div class="panel"><div class="panel-body"><div class="empty-state"><h3>No spending logged yet</h3><p>Track the extra purchases that happen inside each pay period. Use the add button on a period card to drop spending directly into the right place.</p><div class="empty-state-actions"><button class="btn" id="spendingGoBudgetBtn">Go to Budget Tracker</button></div></div></div></div>' : '') +
     groups.map(function (group) {
       return '<div class="period-card">' +
         '<div class="period-head"><div><h3>' + formatCompactDate(group.payDate) + ' pay period</h3><p class="muted">' + formatCompactDate(group.windowStart) + ' to ' + formatCompactDate(group.windowEnd) + '</p></div><div class="controls"><div class="muted">Tracked spending: ' + formatMoney(group.total) + '</div><button class="mini-btn add-spending-for-period" data-period-id="' + group.id + '">+ Add spending</button></div></div>' +
@@ -622,6 +676,13 @@ function renderSpending() {
           '</tr>';
       }).join('') + '</tbody></table></div></div>' : '') +
     '</div></div></div>';
+  const spendingGoBudgetBtn = document.getElementById('spendingGoBudgetBtn');
+if (spendingGoBudgetBtn) {
+  spendingGoBudgetBtn.addEventListener('click', function () {
+    activeTab = 'budget';
+    renderApp();
+  });
+}
 
   document.querySelectorAll('.add-spending-for-period').forEach(function (el) {
     el.addEventListener('click', function (e) {
@@ -663,9 +724,10 @@ function renderDeposits() {
     return { id: period.id, payDate: period.payDate, windowStart: start, windowEnd: end, items, total };
   });
   const outsideRange = rows.filter(item => !getPayPeriodForDate(item.date, payPeriods));
+  const hasAnyDeposits = rows.length > 0;
 
   document.getElementById('tab-deposits').innerHTML =
-    '<div class="panel"><div class="panel-head"><div><h2>Deposits</h2><p>Deposits are grouped by pay period for easier tracking.</p></div></div><div class="panel-body"><div class="period-list">' +
+  (!hasAnyDeposits ? '<div class="panel"><div class="panel-body"><div class="empty-state"><h3>No deposits logged yet</h3><p>Track any extra money that comes in during a pay period, like reimbursements, transfers, or one off deposits.</p><div class="empty-state-actions"><button class="btn" id="depositsGoBudgetBtn">Go to Budget Tracker</button></div></div></div></div>' : '') +
     groups.map(function (group) {
       return '<div class="period-card">' +
         '<div class="period-head"><div><h3>' + formatCompactDate(group.payDate) + ' pay period</h3><p class="muted">' + formatCompactDate(group.windowStart) + ' to ' + formatCompactDate(group.windowEnd) + '</p></div><div class="controls"><div class="muted">Tracked deposits: ' + formatMoney(group.total) + '</div><button class="mini-btn add-deposit-for-period" data-period-id="' + group.id + '">+ Add deposit</button></div></div>' +
@@ -692,6 +754,13 @@ function renderDeposits() {
           '</tr>';
       }).join('') + '</tbody></table></div></div>' : '') +
     '</div></div></div>';
+  const depositsGoBudgetBtn = document.getElementById('depositsGoBudgetBtn');
+if (depositsGoBudgetBtn) {
+  depositsGoBudgetBtn.addEventListener('click', function () {
+    activeTab = 'budget';
+    renderApp();
+  });
+}
 
   document.querySelectorAll('.add-deposit-for-period').forEach(function (el) {
     el.addEventListener('click', function (e) {
