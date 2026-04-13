@@ -26,9 +26,9 @@ function formatMoney(v) { return new Intl.NumberFormat('en-US', { style: 'curren
 // --- STATE MANAGEMENT ---
 const defaultData = {
   settings: { 
-    openingBalance: 0, 
+    initialBalance: 0, // Your manually entered starting leftover
     scheduleMonthsForward: 12,
-    anchorDate: '2026-03-02', // Default start
+    anchorDate: '2026-03-05', 
     periodDays: 14 
   },
   userName: 'Baller',
@@ -42,7 +42,7 @@ let state = JSON.parse(localStorage.getItem(STORAGE_KEY)) || clone(defaultData);
 let activeTab = 'dashboard';
 let scheduleSearch = '';
 let filter30Days = false; 
-let currentPeriodOffset = 0; // Tracking for the budget tab
+let currentPeriodOffset = 0; 
 
 function saveState() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
@@ -56,7 +56,7 @@ function setTab(id) {
 
 // --- PERIOD CALCULATIONS ---
 function getPeriodDates() {
-    let start = parseISODate(state.settings.anchorDate || '2026-03-02');
+    let start = parseISODate(state.settings.anchorDate || '2026-03-05');
     let days = parseInt(state.settings.periodDays || 14);
     start.setDate(start.getDate() + (currentPeriodOffset * days));
     let end = new Date(start);
@@ -66,11 +66,6 @@ function getPeriodDates() {
 
 function changePeriod(direction) {
     currentPeriodOffset += direction;
-    renderBudget();
-}
-
-function resetToCurrentPeriod() {
-    currentPeriodOffset = 0;
     renderBudget();
 }
 
@@ -101,7 +96,7 @@ function handleImport(event) {
 // --- SCHEDULE ENGINE ---
 function getScheduleRows() {
   const rows = [];
-  const start = new Date();
+  const start = new Date(); // Range for schedule display
   const end = addDays(start, (state.settings.scheduleMonthsForward || 12) * 30);
   const thirtyDaysOut = addDays(start, 30);
 
@@ -116,7 +111,7 @@ function getScheduleRows() {
       rows.push({
         id: key,
         description: bill.name,
-        amount: bill.amount,
+        amount: parseFloat(bill.amount),
         date: dateStr,
         status: meta.paid ? 'Paid' : (current < new Date() ? 'Overdue' : 'Upcoming')
       });
@@ -209,6 +204,13 @@ function renderBudget() {
   const startStr = start.toLocaleDateString('en-US', {month:'short', day:'2-digit'});
   const endStr = end.toLocaleDateString('en-US', {month:'short', day:'2-digit'});
 
+  // 1. Calculate History BEFORE current period (to find carry-over)
+  const priorIncome = state.deposits.filter(d => parseISODate(d.date) < start).reduce((s, d) => s + d.amount, 0);
+  const priorSpending = state.spending.filter(sp => parseISODate(sp.date) < start).reduce((s, sp) => s + sp.amount, 0);
+  const priorBills = getScheduleRows().filter(r => parseISODate(r.date) < start).reduce((s, r) => s + r.amount, 0);
+  const carryOver = (parseFloat(state.settings.initialBalance) || 0) + priorIncome - priorBills - priorSpending;
+
+  // 2. Calculate Current Period Math
   const pIncome = state.deposits.filter(d => { let dt = parseISODate(d.date); return dt >= start && dt <= end; }).reduce((s, d) => s + d.amount, 0);
   const pSpending = state.spending.filter(sp => { let dt = parseISODate(sp.date); return dt >= start && dt <= end; }).reduce((s, sp) => s + sp.amount, 0);
   const pBills = getScheduleRows().filter(r => { let dt = parseISODate(r.date); return dt >= start && dt <= end; }).reduce((s, r) => s + r.amount, 0);
@@ -216,32 +218,36 @@ function renderBudget() {
   const container = document.getElementById('tab-budget');
   container.innerHTML = `
     <div class="panel">
-      <div class="panel-head"><h2>Period Analysis</h2></div>
+      <div class="panel-head"><h2>Budget Analysis</h2></div>
       
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
         <button class="tab-btn" onclick="changePeriod(-1)">◀</button>
         <div style="text-align: center;">
           <strong style="display: block; font-size: 1.1rem;">${startStr} - ${endStr}</strong>
-          <button class="mini-btn" style="margin-top:5px; font-size:0.7rem;" onclick="resetToCurrentPeriod()">Jump to Today</button>
+          <button class="mini-btn" style="margin-top:5px; font-size:0.7rem;" onclick="currentPeriodOffset=0;renderBudget()">Jump to Today</button>
         </div>
         <button class="tab-btn" onclick="changePeriod(1)">▶</button>
       </div>
 
       <div class="stack" style="gap:12px">
-        <div style="display:flex; justify-content:space-between"><span>Income</span><strong>${formatMoney(pIncome)}</strong></div>
-        <div style="display:flex; justify-content:space-between"><span>Bills</span><strong style="color:#e74c3c">${formatMoney(pBills)}</strong></div>
-        <div style="display:flex; justify-content:space-between"><span>Misc</span><strong style="color:#e74c3c">${formatMoney(pSpending)}</strong></div>
+        <div style="display:flex; justify-content:space-between; color:#636e72"><span>Prior Leftover</span><strong>${formatMoney(carryOver)}</strong></div>
+        <div style="display:flex; justify-content:space-between"><span>New Income</span><strong>${formatMoney(pIncome)}</strong></div>
+        <div style="display:flex; justify-content:space-between"><span>Period Bills</span><strong style="color:#e74c3c">${formatMoney(pBills)}</strong></div>
+        <div style="display:flex; justify-content:space-between"><span>Misc Spent</span><strong style="color:#e74c3c">${formatMoney(pSpending)}</strong></div>
         <hr style="border:0; border-top:1px solid #eee; margin:5px 0;">
         <div style="display:flex; justify-content:space-between; font-size:1.2rem; font-weight:bold;">
-          <span>Leftover</span><span style="color:#3498db">${formatMoney(pIncome - pBills - pSpending)}</span>
+          <span>Current Leftover</span><span style="color:#3498db">${formatMoney(carryOver + pIncome - pBills - pSpending)}</span>
         </div>
       </div>
     </div>
     
     <div class="panel">
-        <div class="panel-head"><h3>Manual Period Override</h3></div>
-        <p style="font-size:0.8rem; color:#666; margin-bottom:10px;">Pick a temporary start date to see a custom 14-day window.</p>
-        <input type="date" class="field" onchange="state.settings.anchorDate=this.value; currentPeriodOffset=0; renderBudget()">
+        <div class="panel-head"><h3>Manual Adjustments</h3></div>
+        <label style="font-size:0.8rem; color:#666;">Set Manual Starting Balance</label>
+        <input type="number" class="field" placeholder="Enter leftover before 03/05" value="${state.settings.initialBalance}" onchange="state.settings.initialBalance=this.value;saveState()">
+        
+        <label style="font-size:0.8rem; color:#666;">Change Period Start Date</label>
+        <input type="date" class="field" onchange="state.settings.anchorDate=this.value; currentPeriodOffset=0; saveState()">
     </div>`;
 }
 
@@ -253,7 +259,7 @@ function renderSettings() {
         <label>Display Name</label>
         <input type="text" class="field" value="${state.userName}" onchange="state.userName=this.value;saveState()">
         
-        <label>Cycle Start Date (Anchor)</label>
+        <label>Default Cycle Start (Anchor)</label>
         <input type="date" class="field" value="${state.settings.anchorDate}" onchange="state.settings.anchorDate=this.value;saveState()">
         
         <label>Cycle Length (Days)</label>
