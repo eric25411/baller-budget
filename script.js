@@ -849,3 +849,111 @@ function renderDeposits() {
   const groups = payPeriods.map(function (period) {
     const start = period.payDate;
     const end = toISODate(addDays(parseISODate(period.payDate), 13));
+    const items = rows.filter(item => item.date >= start && item.date <= end);
+    const total = items.reduce((sum, item) => sum + numberOrZero(item.amount), 0);
+    return { id: period.id, payDate: period.payDate, windowStart: start, windowEnd: end, items, total };
+  });
+  const outsideRange = rows.filter(item => !getPayPeriodForDate(item.date, payPeriods));
+  const hasAnyDeposits = rows.length > 0;
+
+  document.getElementById('tab-deposits').innerHTML =
+    (!hasAnyDeposits
+      ? '<div class="panel"><div class="panel-body"><div class="empty-state"><h3>No deposits logged yet</h3><p>Track refunds, transfers, or any extra money that lands inside a pay period.</p><div class="empty-state-actions"><button class="btn" id="depositsGoBudgetBtn">Go to Budget Tracker</button></div></div></div></div>'
+      : '') +
+    '<div class="panel"><div class="panel-head"><div><h2>Deposits</h2><p>Deposits are grouped by pay period so extra money lands in the right place.</p></div></div><div class="panel-body">' +
+      (!hasAnyDeposits ? '<div class="note-box">Each pay period has its own add deposit button, so your incoming money stays organized by period.</div>' : '') +
+      '<div class="period-list">' +
+        groups.map(function (group) {
+          return '<div class="period-card"><div class="period-head"><div><h3>' + formatCompactDate(group.payDate) + ' pay period</h3><p class="muted">' + formatCompactDate(group.windowStart) + ' to ' + formatCompactDate(group.windowEnd) + '</p></div><div class="controls"><div class="muted">Tracked deposits: ' + formatMoney(group.total) + '</div><button class="mini-btn add-deposit-for-period" data-period-id="' + group.id + '">+ Add deposit</button></div></div>' +
+            (group.items.length
+              ? '<div class="table-wrap"><table><thead><tr><th>Date</th><th>Amount</th><th>Comments</th><th></th></tr></thead><tbody>' +
+                  group.items.map(function (item) {
+                    return '<tr><td><input class="field deposit-date" data-id="' + item.id + '" type="date" value="' + item.date + '" /></td><td><input class="field deposit-amount" data-id="' + item.id + '" type="number" step="0.01" value="' + item.amount + '" /></td><td><input class="field deposit-comments" data-id="' + item.id + '" value="' + escapeHtml(item.comments || '') + '" /></td><td><button class="danger-btn delete-deposit" data-id="' + item.id + '">Remove</button></td></tr>';
+                  }).join('') +
+                '</tbody></table></div>'
+              : '<div class="note-box">No deposits added for this pay period yet.</div>') +
+          '</div>';
+        }).join('') +
+        (outsideRange.length
+          ? '<div class="period-card"><div class="period-head"><div><h3>Outside current pay periods</h3><p class="muted">These entries do not currently land inside one of the pay period windows.</p></div></div><div class="table-wrap"><table><thead><tr><th>Date</th><th>Amount</th><th>Comments</th><th></th></tr></thead><tbody>' +
+              outsideRange.map(function (item) {
+                return '<tr><td><input class="field deposit-date" data-id="' + item.id + '" type="date" value="' + item.date + '" /></td><td><input class="field deposit-amount" data-id="' + item.id + '" type="number" step="0.01" value="' + item.amount + '" /></td><td><input class="field deposit-comments" data-id="' + item.id + '" value="' + escapeHtml(item.comments || '') + '" /></td><td><button class="danger-btn delete-deposit" data-id="' + item.id + '">Remove</button></td></tr>';
+              }).join('') +
+            '</tbody></table></div></div>'
+          : '') +
+      '</div></div></div>';
+
+  const depositsGoBudgetBtn = document.getElementById('depositsGoBudgetBtn');
+  if (depositsGoBudgetBtn) {
+    depositsGoBudgetBtn.addEventListener('click', function () {
+      activeTab = 'budget';
+      renderApp();
+    });
+  }
+
+  document.querySelectorAll('.add-deposit-for-period').forEach(function (el) {
+    el.addEventListener('click', function (e) {
+      const periodId = e.target.dataset.periodId;
+      const period = (state.payPeriods || []).find(p => p.id === periodId);
+      if (!period) return;
+      setState(function (currentState) {
+        const copy = clone(currentState);
+        copy.deposits.push({ id: makeId('dep'), date: period.payDate, amount: 0, comments: '' });
+        return copy;
+      });
+    });
+  });
+
+  document.querySelectorAll('.deposit-date').forEach(el => el.addEventListener('change', e => updateDepositField(e.target.dataset.id, 'date', e.target.value)));
+  document.querySelectorAll('.deposit-amount').forEach(el => el.addEventListener('change', e => updateDepositField(e.target.dataset.id, 'amount', numberOrZero(e.target.value))));
+  document.querySelectorAll('.deposit-comments').forEach(el => el.addEventListener('change', e => updateDepositField(e.target.dataset.id, 'comments', e.target.value)));
+  document.querySelectorAll('.delete-deposit').forEach(el => el.addEventListener('click', e => {
+    if (!window.confirm('Remove this deposit row?')) return;
+    const id = e.target.dataset.id;
+    setState(function (currentState) {
+      const copy = clone(currentState);
+      copy.deposits = copy.deposits.filter(item => item.id !== id);
+      return copy;
+    });
+  }));
+}
+
+function renderSettings() {
+  document.getElementById('tab-settings').innerHTML =
+    '<div class="panel"><div class="panel-head"><div><h2>Settings</h2><p>App defaults, exports, and data tools.</p></div></div><div class="panel-body stack">' +
+      '<div class="grid-two">' +
+        '<div><label class="muted" style="display:block;margin-bottom:8px;">Opening balance</label><input class="field" id="settingsOpeningBalance" type="number" step="0.01" value="' + state.settings.openingBalance + '" /></div>' +
+        '<div><label class="muted" style="display:block;margin-bottom:8px;">Schedule horizon, months forward</label><input class="field" id="settingsMonthsForward" type="number" min="1" max="24" value="' + state.settings.scheduleMonthsForward + '" /></div>' +
+      '</div>' +
+      '<div class="grid-two">' +
+        '<div><label class="muted" style="display:block;margin-bottom:8px;">Default income for new pay periods</label><input class="field" id="settingsDefaultIncome" type="number" step="0.01" value="' + state.settings.defaultIncome + '" /></div>' +
+        '<div><label class="checkbox-wrap" style="margin-top:30px;"><input type="checkbox" id="settingsCopyIncome" ' + (state.settings.copyPreviousIncome ? 'checked' : '') + ' />Copy previous pay period income when starting a new period</label></div>' +
+      '</div>' +
+      '<div class="panel" style="margin-top:8px;"><div class="panel-head"><div><h2 style="font-size:18px;">CSV exports</h2><p>Export each section separately.</p></div></div><div class="panel-body"><div class="controls"><button class="btn" id="exportBillsCsvBtn">Bills CSV</button><button class="btn" id="exportPayPeriodsCsvBtn">Pay Periods CSV</button><button class="btn" id="exportSpendingCsvBtn">Spending CSV</button><button class="btn" id="exportDepositsCsvBtn">Deposits CSV</button></div></div></div>' +
+      '<div class="note-box">Download backup creates one JSON file with everything in the app. Import backup restores from that file.</div>' +
+    '</div></div>';
+
+  const settingsOpeningBalance = document.getElementById('settingsOpeningBalance');
+  if (settingsOpeningBalance) {
+    settingsOpeningBalance.addEventListener('change', function (e) {
+      setState(function (currentState) {
+        const copy = clone(currentState);
+        copy.settings.openingBalance = numberOrZero(e.target.value);
+        return copy;
+      });
+    });
+  }
+
+  const settingsMonthsForward = document.getElementById('settingsMonthsForward');
+  if (settingsMonthsForward) {
+    settingsMonthsForward.addEventListener('change', function (e) {
+      setState(function (currentState) {
+        const copy = clone(currentState);
+        copy.settings.scheduleMonthsForward = Math.max(1, numberOrZero(e.target.value));
+        return copy;
+      });
+    });
+  }
+
+  const settingsDefaultIncome = document.getElementById('settingsDefaultIncome');
+ 
