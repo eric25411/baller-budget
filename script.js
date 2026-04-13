@@ -36,7 +36,7 @@ const defaultData = {
 let state = JSON.parse(localStorage.getItem(STORAGE_KEY)) || clone(defaultData);
 let activeTab = 'dashboard';
 let scheduleSearch = '';
-let filter30Days = false; // Restored Filter State
+let filter30Days = false; 
 
 function saveState() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
@@ -46,6 +46,38 @@ function saveState() {
 function setTab(id) {
   activeTab = id;
   renderApp();
+}
+
+// --- DATA MANAGEMENT HELPERS ---
+function exportData() {
+  const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(state, null, 2));
+  const downloadAnchorNode = document.createElement('a');
+  downloadAnchorNode.setAttribute("href", dataStr);
+  downloadAnchorNode.setAttribute("download", "budgetflow-backup.json");
+  document.body.appendChild(downloadAnchorNode);
+  downloadAnchorNode.click();
+  downloadAnchorNode.remove();
+}
+
+function handleImport(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const parsed = JSON.parse(e.target.result);
+      if (parsed && parsed.bills) { // Basic safety check
+        state = parsed;
+        saveState();
+        alert('Data imported successfully!');
+      } else {
+        alert('Invalid backup format.');
+      }
+    } catch (err) {
+      alert('Could not read the backup file.');
+    }
+  };
+  reader.readAsText(file);
 }
 
 // --- DYNAMIC ENGINE ---
@@ -60,7 +92,7 @@ function getScheduleRows() {
     if (!current) return;
 
     while (current <= end) {
-      if (filter30Days && current > thirtyDaysOut) break; // Apply 30 Day Filter logic
+      if (filter30Days && current > thirtyDaysOut) break; 
 
       const dateStr = toISODate(current);
       const key = `${bill.id}_${dateStr}`;
@@ -190,11 +222,26 @@ function renderBudget() {
 function renderSettings() {
   const container = document.getElementById('tab-settings');
   container.innerHTML = `
-    <div class="panel"><div class="panel-head"><h2>Settings</h2></div>
+    <div class="panel"><div class="panel-head"><h2>Settings & Profile</h2></div>
       <div class="panel-body stack">
         <label>User Name</label>
         <input type="text" class="field" value="${state.userName}" onchange="state.userName=this.value;saveState()">
-        <button class="danger-btn" onclick="if(confirm('Wipe everything?')){state=clone(defaultData);saveState()}">Clear All Data</button>
+      </div>
+    </div>
+    
+    <div class="panel" style="margin-top: 20px;">
+      <div class="panel-head"><h2>Data Management</h2></div>
+      <div class="panel-body stack">
+        <p style="font-size: 0.9em; color: #666; margin-bottom: 10px;">Back up your data or restore from a previous save.</p>
+        
+        <button class="btn" onclick="exportData()">Export Backup (JSON)</button>
+        
+        <div style="margin: 10px 0;">
+          <label style="font-weight: bold; display: block; margin-bottom: 5px;">Import Backup</label>
+          <input type="file" id="importFile" accept=".json" onchange="handleImport(event)" class="field" style="padding: 10px 5px;">
+        </div>
+
+        <button class="danger-btn" onclick="if(confirm('Are you absolutely sure? This will wipe all bills, income, and history.')){state=clone(defaultData);saveState()}" style="margin-top:20px">Wipe All Data</button>
       </div>
     </div>`;
 }
