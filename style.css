@@ -901,3 +901,43 @@ tbody tr:hover {
     color: var(--text);
   }
 }
+/* Ensure all inputs, including dates, are identical in size */
+.field {
+  width: 100%;
+  height: 45px; /* Fixed height makes them look uniform */
+  padding: 10px;
+  margin-bottom: 12px; /* Added space between individual fields */
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  font-size: 16px;
+  box-sizing: border-box; /* Crucial: prevents width overflow */
+  display: block;
+  -webkit-appearance: none; /* Removes default mobile styling */
+}
+
+/* Add more space between the major panels/sections */
+.panel {
+  margin-bottom: 25px; 
+  padding: 15px;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+}
+
+/* Extra space for the headers inside panels */
+.panel-head {
+  margin-bottom: 15px;
+  border-bottom: 1px solid #eee;
+  padding-bottom: 10px;
+}
+
+/* Spacing for the buttons */
+.btn, .danger-btn {
+  margin-top: 10px;
+  height: 48px;
+}
+
+/* Adds padding to the main container so it's not touching the screen edges */
+main {
+  padding: 15px;
+}
