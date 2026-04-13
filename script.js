@@ -6,6 +6,7 @@ const TABS = [
   { id: 'budget', label: 'Budget Tracker' },
   { id: 'spending', label: 'Other Spending' },
   { id: 'deposits', label: 'Deposits' },
+  { id: 'settings', label: 'Settings' },
 ];
 
 function clone(obj) {
@@ -123,15 +124,55 @@ function downloadJson(filename, data) {
 }
 
 const defaultData = {
-  settings: { openingBalance: 0, scheduleMonthsForward: 12 },
+  settings: {
+    openingBalance: 0,
+    scheduleMonthsForward: 12,
+    defaultIncome: 0,
+    copyPreviousIncome: true
+  },
   bills: [],
   payPeriods: [
-    { id: 'period-1', payDate: getTodayISO(), income: 0, bankBalance: '', reconciled: false, startingBalanceOverride: '' }
+    {
+      id: 'period-1',
+      payDate: getTodayISO(),
+      income: 0,
+      bankBalance: '',
+      reconciled: false,
+      startingBalanceOverride: ''
+    }
   ],
   spending: [],
   deposits: [],
   scheduleMeta: {}
 };
+
+function normalizeState(data) {
+  const base = clone(defaultData);
+  const merged = {
+    ...base,
+    ...(data || {}),
+    settings: {
+      ...base.settings,
+      ...((data && data.settings) || {})
+    },
+    bills: (data && data.bills) || [],
+    payPeriods: ((data && data.payPeriods) || base.payPeriods).map(function (period) {
+      return {
+        id: period.id || makeId('period'),
+        payDate: period.payDate || getTodayISO(),
+        income: numberOrZero(period.income),
+        bankBalance: period.bankBalance ?? '',
+        reconciled: Boolean(period.reconciled),
+        startingBalanceOverride: period.startingBalanceOverride ?? ''
+      };
+    }),
+    spending: (data && data.spending) || [],
+    deposits: (data && data.deposits) || [],
+    scheduleMeta: (data && data.scheduleMeta) || {}
+  };
+
+  return merged;
+}
 
 let state = loadState();
 let activeTab = 'dashboard';
@@ -141,7 +182,7 @@ let next30Only = true;
 function loadState() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : clone(defaultData);
+    return raw ? normalizeState(JSON.parse(raw)) : clone(defaultData);
   } catch (e) {
     return clone(defaultData);
   }
@@ -152,7 +193,7 @@ function saveState() {
 }
 
 function setState(updater) {
-  state = updater(state);
+  state = normalizeState(updater(state));
   saveState();
   renderApp();
 }
@@ -421,10 +462,10 @@ function renderDashboard() {
             '</div>'
           : '<div class="note-box">No pay periods yet.</div>') +
       '</div></div>' +
-      '<div class="panel"><div class="panel-head"><div><h2>App settings</h2><p>Small controls that shape the whole tracker.</p></div></div><div class="panel-body stack">' +
+      '<div class="panel"><div class="panel-head"><div><h2>Quick settings</h2><p>Fast access to your most-used setup values.</p></div></div><div class="panel-body stack">' +
         '<div><label class="muted" style="display:block;margin-bottom:8px;">Opening balance</label><input class="field" id="openingBalanceInput" type="number" step="0.01" value="' + state.settings.openingBalance + '" /></div>' +
         '<div><label class="muted" style="display:block;margin-bottom:8px;">Schedule horizon, months forward</label><input class="field" id="monthsForwardInput" type="number" min="1" max="24" value="' + state.settings.scheduleMonthsForward + '" /></div>' +
-        '<div class="note-box">The schedule is generated from active bills. The budget tracker then rolls the scheduled bills, spending, and deposits into each biweekly window.</div>' +
+        '<div class="note-box">Use the full Settings tab for default income and new period preferences.</div>' +
       '</div></div>' +
     '</div>' +
     '<div class="panel"><div class="panel-head"><div><h2>Next bills coming up</h2><p>This is the app version of your next 30 days view.</p></div></div><div class="panel-body"><div class="next-list">' + nextBillsHtml + '</div></div></div>';
@@ -673,8 +714,11 @@ function renderBudget() {
       const sorted = copy.payPeriods.slice().sort((a, b) => sortByDate(a.payDate, b.payDate));
       const last = sorted[sorted.length - 1];
       const nextDate = last ? toISODate(addDays(parseISODate(last.payDate), 14)) : getTodayISO();
-      const lastIncome = last ? numberOrZero(last.income) : 0;
-      copy.payPeriods.push({ id: makeId('period'), payDate: nextDate, income: lastIncome, bankBalance: '', reconciled: false, startingBalanceOverride: '' });
+      const copyIncomeForward = copy.settings.copyPreviousIncome !== false;
+      const fallbackIncome = numberOrZero(copy.settings.defaultIncome);
+      let nextIncome = fallbackIncome;
+      if (copyIncomeForward && last) nextIncome = numberOrZero(last.income);
+      copy.payPeriods.push({ id: makeId('period'), payDate: nextDate, income: nextIncome, bankBalance: '', reconciled: false, startingBalanceOverride: '' });
       return copy;
     });
   });
@@ -874,6 +918,117 @@ function renderDeposits() {
   }));
 }
 
+function renderSettings() {
+  document.getElementById('tab-settings').innerHTML =
+    '<div class="panel"><div class="panel-head"><div><h2>Settings</h2><p>Manage the defaults BudgetFlow uses when you create and track new periods.</p></div></div><div class="panel-body">' +
+      '<div class="settings-grid">' +
+        '<div class="setting-card">' +
+          '<h3>Period defaults</h3>' +
+          '<p>These settings control how new pay periods behave when you create them.</p>' +
+          '<div class="setting-row">' +
+            '<label for="settingsDefaultIncome">Default income for new periods</label>' +
+            '<input class="field" id="settingsDefaultIncome" type="number" step="0.01" value="' + state.settings.defaultIncome + '" />' +
+            '<div class="setting-hint">Used when you start a new period and choose not to copy the previous period income.</div>' +
+          '</div>' +
+          '<label class="checkbox-wrap"><input type="checkbox" id="settingsCopyPreviousIncome" ' + (state.settings.copyPreviousIncome ? 'checked' : '') + ' />Copy previous income into new periods</label>' +
+        '</div>' +
+        '<div class="setting-card">' +
+          '<h3>General preferences</h3>' +
+          '<p>These control the core setup BudgetFlow uses across the app.</p>' +
+          '<div class="setting-row">' +
+            '<label for="settingsOpeningBalance">Opening balance</label>' +
+            '<input class="field" id="settingsOpeningBalance" type="number" step="0.01" value="' + state.settings.openingBalance + '" />' +
+          '</div>' +
+          '<div class="setting-row">' +
+            '<label for="settingsScheduleMonths">Schedule horizon, months forward</label>' +
+            '<input class="field" id="settingsScheduleMonths" type="number" min="1" max="24" value="' + state.settings.scheduleMonthsForward + '" />' +
+          '</div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="settings-grid" style="margin-top:18px;">' +
+        '<div class="setting-card">' +
+          '<h3>Maintenance</h3>' +
+          '<p>Useful cleanup actions for keeping your tracker tidy as it grows.</p>' +
+          '<div class="controls">' +
+            '<button class="ghost-btn" id="settingsClearOverridesBtn">Clear all starting balance overrides</button>' +
+            '<button class="ghost-btn" id="settingsGoBudgetBtn">Open Budget Tracker</button>' +
+          '</div>' +
+        '</div>' +
+        '<div class="setting-card">' +
+          '<h3>How new periods work</h3>' +
+          '<p>When you click Start New Period, BudgetFlow creates the next pay date automatically. It can either carry forward the previous period income or use the default income you set here.</p>' +
+          '<div class="note-box">Your current saved data stays in this browser unless you export a backup.</div>' +
+        '</div>' +
+      '</div>' +
+    '</div></div>';
+
+  const settingsDefaultIncome = document.getElementById('settingsDefaultIncome');
+  if (settingsDefaultIncome) {
+    settingsDefaultIncome.addEventListener('change', function (e) {
+      setState(function (currentState) {
+        const copy = clone(currentState);
+        copy.settings.defaultIncome = numberOrZero(e.target.value);
+        return copy;
+      });
+    });
+  }
+
+  const settingsCopyPreviousIncome = document.getElementById('settingsCopyPreviousIncome');
+  if (settingsCopyPreviousIncome) {
+    settingsCopyPreviousIncome.addEventListener('change', function (e) {
+      setState(function (currentState) {
+        const copy = clone(currentState);
+        copy.settings.copyPreviousIncome = e.target.checked;
+        return copy;
+      });
+    });
+  }
+
+  const settingsOpeningBalance = document.getElementById('settingsOpeningBalance');
+  if (settingsOpeningBalance) {
+    settingsOpeningBalance.addEventListener('change', function (e) {
+      setState(function (currentState) {
+        const copy = clone(currentState);
+        copy.settings.openingBalance = numberOrZero(e.target.value);
+        return copy;
+      });
+    });
+  }
+
+  const settingsScheduleMonths = document.getElementById('settingsScheduleMonths');
+  if (settingsScheduleMonths) {
+    settingsScheduleMonths.addEventListener('change', function (e) {
+      setState(function (currentState) {
+        const copy = clone(currentState);
+        copy.settings.scheduleMonthsForward = Math.max(1, numberOrZero(e.target.value));
+        return copy;
+      });
+    });
+  }
+
+  const settingsClearOverridesBtn = document.getElementById('settingsClearOverridesBtn');
+  if (settingsClearOverridesBtn) {
+    settingsClearOverridesBtn.addEventListener('click', function () {
+      if (!window.confirm('Clear all manual starting balance overrides?')) return;
+      setState(function (currentState) {
+        const copy = clone(currentState);
+        copy.payPeriods = copy.payPeriods.map(function (period) {
+          return { ...period, startingBalanceOverride: '' };
+        });
+        return copy;
+      });
+    });
+  }
+
+  const settingsGoBudgetBtn = document.getElementById('settingsGoBudgetBtn');
+  if (settingsGoBudgetBtn) {
+    settingsGoBudgetBtn.addEventListener('click', function () {
+      activeTab = 'budget';
+      renderApp();
+    });
+  }
+}
+
 function updateBillField(id, key, value) {
   setState(function (currentState) {
     const copy = clone(currentState);
@@ -922,6 +1077,7 @@ function renderApp() {
   renderBudget();
   renderSpending();
   renderDeposits();
+  renderSettings();
   setTab(activeTab);
 }
 
@@ -942,7 +1098,7 @@ document.getElementById('importFile').addEventListener('change', async function 
   if (!file) return;
   try {
     const text = await file.text();
-    state = JSON.parse(text);
+    state = normalizeState(JSON.parse(text));
     saveState();
     renderApp();
   } catch (err) {
