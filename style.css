@@ -558,6 +558,47 @@ tbody tr:hover {
   letter-spacing: 0.08em;
   margin: 6px 0 10px;
 }
+.settings-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+}
+
+.setting-card {
+  background: rgba(2, 6, 23, 0.52);
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  padding: 18px;
+}
+
+.setting-card h3 {
+  font-size: 18px;
+  margin-bottom: 6px;
+}
+
+.setting-card p {
+  color: var(--muted);
+  line-height: 1.6;
+  margin-bottom: 14px;
+}
+
+.setting-row {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.setting-row label {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.setting-hint {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
+  margin-top: 4px;
+}
 
 #importFile {
   display: none;
@@ -566,7 +607,8 @@ tbody tr:hover {
 @media (max-width: 1180px) {
   .stats,
   .grid-two,
-  .summary-grid {
+  .summary-grid,
+  .settings-grid {
     grid-template-columns: 1fr 1fr;
   }
 }
@@ -583,11 +625,12 @@ tbody tr:hover {
     padding-right: 16px;
   }
 
-  .stats,
-  .grid-two,
-  .summary-grid {
-    grid-template-columns: 1fr;
-  }
+ .stats,
+.grid-two,
+.summary-grid,
+.settings-grid {
+  grid-template-columns: 1fr;
+}
 
   .next-item {
     grid-template-columns: 1fr;
