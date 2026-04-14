@@ -22,6 +22,10 @@ function parseISODate(value) {
 function toISODate(date) { return date.getFullYear() + '-' + pad(date.getMonth() + 1) + '-' + pad(date.getDate()); }
 function addDays(date, days) { const d = new Date(date); d.setDate(d.getDate() + days); return d; }
 function formatMoney(v) { return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(v || 0); }
+function formatDateRange(start, end) {
+    const opt = { month: 'short', day: '2-digit' };
+    return `${start.toLocaleDateString('en-US', opt)} - ${end.toLocaleDateString('en-US', opt)}`;
+}
 
 // --- STATE MANAGEMENT ---
 const defaultData = {
@@ -30,14 +34,18 @@ const defaultData = {
   bills: [],
   spending: [],
   deposits: [],
-  scheduleMeta: {} // Stores { paid: bool, actualAmount: num }
+  scheduleMeta: {} 
 };
 
 let state = JSON.parse(localStorage.getItem(STORAGE_KEY)) || clone(defaultData);
 let activeTab = 'dashboard', scheduleSearch = '', spendingSearch = '', scheduleFilterMode = 'all', currentPeriodOffset = 0, editingBillId = null;
 
 function saveState() { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); renderApp(); }
-function setTab(id) { activeTab = id; renderApp(); }
+function setTab(id) { 
+    if(id === 'budget') currentPeriodOffset = getTodayOffset(); 
+    activeTab = id; 
+    renderApp(); 
+}
 
 // --- LOGIC ENGINES ---
 function getPeriodDates(offset = 0) {
@@ -106,32 +114,7 @@ function calculatePeriodStats(offset) {
     return { start, end, carryOver, pIncome, pSpending, pBills, totalLeft: (carryOver + pIncome - pBills - pSpending) };
 }
 
-// --- ACTIONS ---
-function setActualAmount(key, val) {
-    if (!state.scheduleMeta[key]) state.scheduleMeta[key] = { paid: false };
-    state.scheduleMeta[key].actualAmount = parseFloat(val) || 0;
-    saveState();
-}
-function togglePaid(key) {
-    if (!state.scheduleMeta[key]) state.scheduleMeta[key] = { paid: false };
-    state.scheduleMeta[key].paid = !state.scheduleMeta[key].paid;
-    saveState();
-}
-function addSpending() {
-  const d = document.getElementById('spDesc').value, a = parseFloat(document.getElementById('spAmt').value), dt = document.getElementById('spDate').value;
-  if (!d || isNaN(a) || !dt) return;
-  state.spending.push({ id: makeId('sp'), description: d, amount: a, date: dt });
-  saveState();
-}
-function addDeposit() {
-  const d = document.getElementById('dpDesc').value, a = parseFloat(document.getElementById('dpAmt').value), dt = document.getElementById('dpDate').value;
-  if (!d || isNaN(a) || !dt) return;
-  state.deposits.push({ id: makeId('dp'), description: d, amount: a, date: dt });
-  saveState();
-}
-function deleteItem(coll, id) { state[coll] = state[coll].filter(i => i.id !== id); saveState(); }
-
-// --- RENDERING ---
+// --- RENDERING FUNCTIONS ---
 function renderDashboard() {
   const todayOffset = getTodayOffset();
   const stats = calculatePeriodStats(todayOffset);
@@ -142,7 +125,7 @@ function renderDashboard() {
   document.getElementById('tab-dashboard').innerHTML = `
     <div class="panel" style="text-align:center; padding: 25px 20px;">
         <div class="label" style="text-transform:uppercase; font-size:0.75rem; color:#636e72">Total Available</div>
-        <div class="value" style="font-size: 2.2rem; font-weight: 800; color: var(--accent);">${formatMoney(stats.totalLeft)}</div>
+        <div class="value" style="font-size: 2.2rem; font-weight: 800; color: #3498db;">${formatMoney(stats.totalLeft)}</div>
         <div style="font-size: 1.2rem; font-weight: 700; color: #2d3436; margin-top:10px;">${formatMoney(stats.totalLeft / daysLeft)} <span style="font-size:0.7rem;">/ day</span></div>
     </div>
     ${imminent.length ? `<div class="panel" style="border-left: 4px solid #e74c3c;"><div style="color: #e74c3c; font-weight: bold; font-size: 0.8rem; margin-bottom:5px;">⚠️ DUE SOON</div>${imminent.map(i => `<div style="display:flex; justify-content:space-between; font-size:0.85rem;"><span>${i.description}</span><strong>${formatMoney(i.amount)}</strong></div>`).join('')}</div>` : ''}
@@ -178,9 +161,37 @@ function renderSchedule() {
     <div class="panel">
         <input type="text" class="field" placeholder="Search bills..." value="${scheduleSearch}" oninput="scheduleSearch=this.value;renderSchedule()">
         <div style="display:flex; gap:5px; margin-top:10px;"><button class="mini-btn ${scheduleFilterMode==='all'?'active':''}" onclick="scheduleFilterMode='all';renderSchedule()">All</button><button class="mini-btn ${scheduleFilterMode==='30days'?'active':''}" onclick="scheduleFilterMode='30days';renderSchedule()">30d</button><button class="mini-btn ${scheduleFilterMode==='period'?'active':''}" onclick="scheduleFilterMode='period';renderSchedule()">Period</button></div>
-        ${scheduleFilterMode === 'period' ? `<div style="display:flex; justify-content:space-between; align-items:center; margin-top:15px;"><button class="mini-btn" onclick="currentPeriodOffset--;renderSchedule()">◀</button><strong>${start.toLocaleDateString()}</strong><button class="mini-btn" onclick="currentPeriodOffset++;renderSchedule()">▶</button></div>` : ''}
+        ${scheduleFilterMode === 'period' ? `<div style="display:flex; justify-content:space-between; align-items:center; margin-top:15px;"><button class="mini-btn" onclick="currentPeriodOffset--;renderSchedule()">◀</button><strong>${formatDateRange(start, end)}</strong><button class="mini-btn" onclick="currentPeriodOffset++;renderSchedule()">▶</button></div>` : ''}
     </div>
     <div class="table-wrap"><table><tbody>${rows.map(r => `<tr class="${r.status.toLowerCase()}"><td><small>${r.date}</small><br><strong>${r.description}</strong></td><td style="text-align:right;"><input type="number" step="0.01" class="field" style="width:80px; font-size:0.8rem; text-align:right; margin-bottom:4px;" value="${r.amount}" onchange="setActualAmount('${r.id}', this.value)"><br><button class="mini-btn" onclick="togglePaid('${r.id}')">${r.status === 'Paid' ? 'Undo' : 'Pay'}</button></td></tr>`).join('')}</tbody></table></div>`;
+}
+
+function renderBudget() {
+  const stats = calculatePeriodStats(currentPeriodOffset);
+  const isToday = currentPeriodOffset === getTodayOffset();
+  document.getElementById('tab-budget').innerHTML = `
+    <div class="panel">
+        <div class="panel-head"><h2>Budget Analysis</h2></div>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+            <button class="tab-btn" onclick="currentPeriodOffset--;renderBudget()">◀</button>
+            <div style="text-align: center;">
+                <strong style="display:block; font-size: 1.1rem; color: #2d3436;">${formatDateRange(stats.start, stats.end)}</strong>
+                ${!isToday ? `<button class="mini-btn" style="font-size:0.65rem; margin-top:4px;" onclick="currentPeriodOffset=getTodayOffset();renderBudget()">Jump to Today</button>` : `<small style="color:#3498db; font-weight:bold;">Current Period</small>`}
+            </div>
+            <button class="tab-btn" onclick="currentPeriodOffset++;renderBudget()">▶</button>
+        </div>
+        <div class="stack" style="gap:12px; margin-top:20px;">
+            <div style="display:flex; justify-content:space-between; color: #636e72;"><span>Prior Carryover</span><strong>${formatMoney(stats.carryOver)}</strong></div>
+            <div style="display:flex; justify-content:space-between"><span>New Income</span><strong>${formatMoney(stats.pIncome)}</strong></div>
+            <div style="display:flex; justify-content:space-between"><span>Scheduled Bills</span><strong style="color:#e74c3c">-${formatMoney(stats.pBills)}</strong></div>
+            <div style="display:flex; justify-content:space-between"><span>Misc Spending</span><strong style="color:#e74c3c">-${formatMoney(stats.pSpending)}</strong></div>
+            <hr style="border:0; border-top:1px solid #eee; margin: 10px 0;">
+            <div style="display:flex; justify-content:space-between; font-size:1.3rem; font-weight:800;">
+                <span>Net Remaining</span>
+                <span style="color: #3498db">${formatMoney(stats.totalLeft)}</span>
+            </div>
+        </div>
+    </div>`;
 }
 
 function renderSpending() {
@@ -197,16 +208,13 @@ function renderDeposits() {
     <div class="table-wrap"><table><tbody>${state.deposits.sort((a,b)=>b.date.localeCompare(a.date)).map(d => `<tr><td><small>${d.date}</small><br><strong>${d.description}</strong></td><td style="text-align:right;">${formatMoney(d.amount)}<br><button class="mini-btn danger-btn" onclick="deleteItem('deposits','${d.id}')">Del</button></td></tr>`).join('')}</tbody></table></div>`;
 }
 
-function renderBudget() {
-  const stats = calculatePeriodStats(currentPeriodOffset);
-  document.getElementById('tab-budget').innerHTML = `<div class="panel"><div class="panel-head"><h2>Budget Analysis</h2></div><div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;"><button class="tab-btn" onclick="currentPeriodOffset--;renderBudget()">◀</button><strong>Period View</strong><button class="tab-btn" onclick="currentPeriodOffset++;renderBudget()">▶</button></div><div class="stack" style="gap:12px"><div style="display:flex; justify-content:space-between"><span>Prior</span><strong>${formatMoney(stats.carryOver)}</strong></div><div style="display:flex; justify-content:space-between"><span>Income</span><strong>${formatMoney(stats.pIncome)}</strong></div><div style="display:flex; justify-content:space-between"><span>Bills</span><strong style="color:#e74c3c">${formatMoney(stats.pBills)}</strong></div><div style="display:flex; justify-content:space-between"><span>Spent</span><strong style="color:#e74c3c">${formatMoney(stats.pSpending)}</strong></div><hr><div style="display:flex; justify-content:space-between; font-size:1.2rem; font-weight:bold;"><span>Remaining</span><span style="color:#3498db">${formatMoney(stats.totalLeft)}</span></div></div></div>`;
-}
-
 function renderSettings() {
   document.getElementById('tab-settings').innerHTML = `<div class="panel"><div class="stack"><label>Name</label><input type="text" class="field" value="${state.userName}" onchange="state.userName=this.value;saveState()"><label>Start Bal</label><input type="number" class="field" value="${state.settings.initialBalance}" onchange="state.settings.initialBalance=parseFloat(this.value)||0;saveState()"><label>Start Date</label><input type="date" class="field" value="${state.settings.anchorDate}" onchange="state.settings.anchorDate=this.value;saveState()"></div></div><div class="panel"><div class="stack" style="gap:10px"><button class="btn" style="background:#27ae60" onclick="exportCSV()">Download Excel (CSV)</button><button class="btn" style="background:#34495e" onclick="exportData()">Backup (JSON)</button><button class="btn" style="background:#7f8c8d" onclick="document.getElementById('importFile').click()">Import Backup</button><input type="file" id="importFile" class="hidden" onchange="importData(event)"><button class="btn danger-btn" onclick="if(confirm('Reset?')) { state=clone(defaultData); saveState(); }">Reset App</button></div></div>`;
 }
 
 // --- SHARED ACTIONS ---
+function setActualAmount(key, val) { if (!state.scheduleMeta[key]) state.scheduleMeta[key] = { paid: false }; state.scheduleMeta[key].actualAmount = parseFloat(val) || 0; saveState(); }
+function togglePaid(key) { if (!state.scheduleMeta[key]) state.scheduleMeta[key] = { paid: false }; state.scheduleMeta[key].paid = !state.scheduleMeta[key].paid; saveState(); }
 function addBill() {
   const n = document.getElementById('billName').value, a = parseFloat(document.getElementById('billAmount').value), d = document.getElementById('billDate').value, f = document.getElementById('billFreq').value, c = document.getElementById('customDays').value, ed = document.getElementById('billEndDate').value;
   if (!n || isNaN(a) || !d) return;
@@ -217,6 +225,9 @@ function addBill() {
 }
 function editBill(id) { const b = state.bills.find(b => b.id === id); if (!b) return; editingBillId = id; renderBills(); document.getElementById('billName').value = b.name; document.getElementById('billAmount').value = b.amount; document.getElementById('billDate').value = b.date; document.getElementById('billFreq').value = b.frequency; document.getElementById('billEndDate').value = b.endDate || ''; }
 function cancelEdit() { editingBillId = null; renderBills(); }
+function addSpending() { const d = document.getElementById('spDesc').value, a = parseFloat(document.getElementById('spAmt').value), dt = document.getElementById('spDate').value; if (!d || isNaN(a) || !dt) return; state.spending.push({ id: makeId('sp'), description: d, amount: a, date: dt }); saveState(); }
+function addDeposit() { const d = document.getElementById('dpDesc').value, a = parseFloat(document.getElementById('dpAmt').value), dt = document.getElementById('dpDate').value; if (!d || isNaN(a) || !dt) return; state.deposits.push({ id: makeId('dp'), description: d, amount: a, date: dt }); saveState(); }
+function deleteItem(coll, id) { state[coll] = state[coll].filter(i => i.id !== id); saveState(); }
 function exportCSV() { let rows = [["Type", "Date", "Description", "Amount"]]; state.spending.forEach(s => rows.push(["Spending", s.date, s.description, s.amount])); state.deposits.forEach(d => rows.push(["Income", d.date, d.description, d.amount])); getScheduleRows().forEach(r => { if(state.scheduleMeta[r.id]?.paid) rows.push(["Bill Paid", r.date, r.description, r.amount]); }); let csvContent = "data:text/csv;charset=utf-8," + rows.map(e => e.join(",")).join("\n"); const link = document.createElement("a"); link.setAttribute("href", encodeURI(csvContent)); link.setAttribute("download", `budget_export.csv`); link.click(); }
 function exportData() { const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(state)); const dl = document.createElement('a'); dl.setAttribute("href", dataStr); dl.setAttribute("download", `budget_backup.json`); dl.click(); }
 function importData(event) { const file = event.target.files[0]; if (!file) return; const reader = new FileReader(); reader.onload = (e) => { try { const data = JSON.parse(e.target.result); if (data.bills) { state = data; saveState(); } } catch(err) { alert("Error"); } }; reader.readAsText(file); }
