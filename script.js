@@ -1,4 +1,4 @@
-const STORAGE_KEY = 'budgetflow-v2';const STORAGE_KEY = 'budgetflow-v3';
+const STORAGE_KEY = 'budgetflow-v3';
 
 const TABS = [
   { id: 'dashboard', label: 'Dashboard' },
@@ -7,32 +7,39 @@ const TABS = [
   { id: 'budget', label: 'Budget Tracker' },
   { id: 'spending', label: 'Other Spending' },
   { id: 'deposits', label: 'Deposits' },
-  { id: 'settings', label: 'Settings' },
+  { id: 'settings', label: 'Settings' }
 ];
 
 // --- STYLES ---
 const style = document.createElement('style');
 style.textContent = `
-    :root { --primary: #3498db; --secondary: #2ecc71; --danger: #e74c3c; --bg: #f8f9fa; --card-bg: #ffffff; }
-    body { font-family: -apple-system, sans-serif; background: var(--bg); margin: 0; padding-bottom: 50px; }
-    #header { background: var(--primary); color: white; padding: 20px; text-align: center; }
-    #header h1 { margin: 0; font-size: 1.5rem; }
-    #header p { margin: 5px 0 0; opacity: 0.9; font-size: 0.9rem; }
+    :root { --primary: #5fa8e6; --secondary: #2ecc71; --danger: #e74c3c; --bg: #f4f6f9; --card-bg: #ffffff; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg); margin: 0; padding-bottom: 50px; color: #333; }
     
-    #tabs-container { overflow-x: auto; white-space: nowrap; padding: 12px; background: #fff; border-bottom: 1px solid #eee; position: sticky; top: 0; z-index: 100; }
-    .tab-btn { display: inline-block; padding: 8px 16px; border-radius: 20px; border: none; background: #eee; cursor: pointer; font-weight: 600; margin-right: 8px; font-size: 0.8rem; }
+    #header { background: var(--primary); color: white; padding: 25px 15px 20px; text-align: center; }
+    #header h1 { margin: 0; font-size: 1.8rem; font-weight: 800; letter-spacing: -0.5px; }
+    #user-greeting { margin: 5px 0 0; opacity: 0.9; font-size: 0.9rem; font-weight: 500; }
+    
+    #tabs-container { overflow-x: auto; white-space: nowrap; padding: 12px; background: #fff; border-bottom: 1px solid #eee; position: sticky; top: 0; z-index: 100; display: flex; gap: 8px; }
+    .tab-btn { padding: 10px 18px; border-radius: 20px; border: none; background: #f0f2f5; cursor: pointer; font-weight: 600; font-size: 0.85rem; color: #555; transition: 0.2s; }
     .tab-btn.active { background: var(--primary); color: white; }
 
-    .panel { background: var(--card-bg); border-radius: 12px; padding: 15px; margin: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
-    .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
-    .stat-card { background: #f1f2f6; padding: 10px; border-radius: 8px; text-align: center; }
-    .hero-val { font-size: 1.8rem; font-weight: 800; color: var(--primary); margin: 5px 0; }
+    .panel { background: var(--card-bg); border-radius: 16px; padding: 20px; margin: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.03); }
+    .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 0 15px; }
+    .stat-card { background: var(--card-bg); padding: 15px; border-radius: 12px; text-align: center; box-shadow: 0 4px 15px rgba(0,0,0,0.03); }
+    .hero-val { font-size: 2.2rem; font-weight: 800; color: var(--primary); margin: 8px 0; }
     
-    .stack { display: flex; flex-direction: column; gap: 10px; }
-    .field { width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #ddd; box-sizing: border-box; }
-    .btn { background: var(--primary); color: white; border: none; padding: 12px; border-radius: 8px; font-weight: 700; width: 100%; }
+    .stack { display: flex; flex-direction: column; gap: 12px; }
+    .field { width: 100%; padding: 14px; border-radius: 10px; border: 1px solid #e1e4e8; box-sizing: border-box; font-size: 1rem; background: #fafbfc; }
+    .btn { background: var(--primary); color: white; border: none; padding: 14px; border-radius: 10px; font-weight: 700; width: 100%; font-size: 1rem; cursor: pointer; }
+    .mini-btn { padding: 6px 12px; border-radius: 6px; border: none; font-size: 0.8rem; cursor: pointer; font-weight: 600; }
     .flex-between { display: flex; justify-content: space-between; align-items: center; }
     .hidden { display: none; }
+    
+    hr { border: 0; border-top: 1px solid #eee; margin: 15px 0; }
+    .text-green { color: #2ecc71; }
+    .text-red { color: #e74c3c; }
+    .text-blue { color: var(--primary); }
 `;
 document.head.appendChild(style);
 
@@ -40,25 +47,48 @@ document.head.appendChild(style);
 document.body.innerHTML = `
     <div id="header">
         <h1>BudgetFlow</h1>
-        <p id="user-greeting">Welcome</p>
+        <p id="user-greeting"></p>
     </div>
     <div id="tabs-container"></div>
     <div id="main-content"></div>
 `;
 
-// --- DATA HANDLERS ---
+// --- DATA HANDLERS & AUTO-HEAL ---
 const defaultData = {
     userName: 'Baller',
     settings: { initialBalance: 0, anchorDate: new Date().toISOString().split('T')[0], periodDays: 14 },
     bills: [], spending: [], deposits: [], scheduleMeta: {}
 };
 
-let state = JSON.parse(localStorage.getItem(STORAGE_KEY)) || defaultData;
-let activeTab = 'dashboard', periodOffset = 0;
+let state;
+try {
+    state = JSON.parse(localStorage.getItem(STORAGE_KEY));
+    if (!state) state = defaultData;
+} catch (e) {
+    state = defaultData;
+}
 
-function save() { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); render(); }
+// Auto-Heal older saves that are missing new fields
+if (!state.bills) state.bills = [];
+if (!state.spending) state.spending = [];
+if (!state.deposits) state.deposits = [];
+if (!state.scheduleMeta) state.scheduleMeta = {};
+if (!state.settings) state.settings = defaultData.settings;
+if (!state.userName) state.userName = defaultData.userName;
 
-// --- LOGIC ---
+let activeTab = 'dashboard';
+let periodOffset = 0;
+let scheduleMode = 'period';
+
+function save() { 
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); 
+    render(); 
+}
+
+// --- UTILS & LOGIC ---
+const format = (v) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(v || 0);
+function makeId() { return Math.random().toString(36).slice(2, 9); }
+
 function getPeriod() {
     const anchor = new Date(state.settings.anchorDate + 'T00:00:00');
     const start = new Date(anchor);
@@ -68,6 +98,33 @@ function getPeriod() {
     return { start, end, startStr: start.toISOString().split('T')[0], endStr: end.toISOString().split('T')[0] };
 }
 
+function getSchedule() {
+    const rows = [];
+    const limit = new Date();
+    limit.setDate(limit.getDate() + 365);
+    
+    state.bills.forEach(b => {
+        if (!b.date) return;
+        let curr = new Date(b.date + 'T00:00:00');
+        while (curr <= limit) {
+            const dStr = curr.toISOString().split('T')[0];
+            const key = `${b.id}_${dStr}`;
+            const meta = state.scheduleMeta[key] || {};
+            rows.push({
+                id: key, date: dStr, name: b.name,
+                amount: meta.actual !== undefined ? meta.actual : b.amount,
+                paid: !!meta.paid
+            });
+            if (b.freq === 'Weekly') curr.setDate(curr.getDate() + 7);
+            else if (b.freq === 'Bi-Weekly') curr.setDate(curr.getDate() + 14);
+            else if (b.freq === 'Monthly') curr.setMonth(curr.getMonth() + 1);
+            else break;
+        }
+    });
+    return rows.sort((a, b) => a.date.localeCompare(b.date));
+}
+
+// --- RENDERING ROUTINE ---
 function render() {
     document.getElementById('user-greeting').textContent = `Welcome back, ${state.userName}`;
     
@@ -76,9 +133,8 @@ function render() {
 
     const content = document.getElementById('main-content');
     const p = getPeriod();
-    const format = (v) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(v || 0);
 
-    // Filter data for current period
+    // Math Calculations
     const periodBills = state.bills.filter(b => b.date >= p.startStr && b.date <= p.endStr).reduce((s, b) => s + b.amount, 0);
     const periodSpend = state.spending.filter(s => s.date >= p.startStr && s.date <= p.endStr).reduce((s, x) => s + x.amount, 0);
     const periodDep = state.deposits.filter(d => d.date >= p.startStr && d.date <= p.endStr).reduce((s, d) => s + d.amount, 0);
@@ -87,34 +143,90 @@ function render() {
     if (activeTab === 'dashboard') {
         content.innerHTML = `
             <div class="panel" style="text-align:center">
-                <small>Available Balance</small>
+                <strong style="color:#7f8c8d; font-size:0.9rem; text-transform:uppercase;">Total Available</strong>
                 <div class="hero-val">${format(remaining)}</div>
             </div>
             <div class="stat-grid">
-                <div class="panel stat-card"><small>Bills</small><br><strong>${format(periodBills)}</strong></div>
-                <div class="panel stat-card"><small>Income</small><br><strong>${format(periodDep)}</strong></div>
+                <div class="stat-card"><small style="color:#7f8c8d; font-weight:bold;">INCOME</small><br><strong style="font-size:1.2rem;">${format(periodDep)}</strong></div>
+                <div class="stat-card"><small style="color:#7f8c8d; font-weight:bold;">SPENT</small><br><strong style="font-size:1.2rem;">${format(periodSpend + periodBills)}</strong></div>
             </div>`;
     }
 
-    if (activeTab === 'budget') {
+    else if (activeTab === 'bills') {
         content.innerHTML = `
             <div class="panel">
-                <h3>Budget Analysis</h3>
-                <small>${p.startStr} to ${p.endStr}</small>
-                <hr style="border:0; border-top:1px solid #eee; margin:15px 0;">
+                <h3>Manage Bills</h3>
                 <div class="stack">
-                    <div class="flex-between"><span>Start Balance</span> <strong>${format(state.settings.initialBalance)}</strong></div>
-                    <div class="flex-between"><span>Total Deposits</span> <span style="color:green">+${format(periodDep)}</span></div>
-                    <div class="flex-between"><span>Expected Bills</span> <span style="color:red">-${format(periodBills)}</span></div>
-                    <div class="flex-between"><span>Other Spending</span> <span style="color:red">-${format(periodSpend)}</span></div>
-                    <div class="flex-between" style="font-size:1.2rem; margin-top:10px; border-top:2px solid #eee; padding-top:10px;">
-                        <strong>Remaining</strong> <strong>${format(remaining)}</strong>
+                    <input id="bn" placeholder="Name" class="field">
+                    <input id="ba" type="number" placeholder="$ Amount" class="field">
+                    <input id="bd" type="date" class="field">
+                    <select id="bf" class="field">
+                        <option value="Monthly">Monthly</option>
+                        <option value="Weekly">Weekly</option>
+                        <option value="Bi-Weekly">Bi-Weekly</option>
+                    </select>
+                    <button class="btn" onclick="addBill()">Save Bill</button>
+                </div>
+            </div>
+            ${state.bills.map((b, idx) => `
+                <div class="panel flex-between" style="padding: 15px;">
+                    <div><strong style="font-size:1.1rem;">${b.name}</strong><br><small style="color:#7f8c8d;">${b.freq} • Starts: ${b.date}</small></div>
+                    <div style="text-align:right;"><strong>${format(b.amount)}</strong><br><button class="mini-btn" style="background:var(--danger); color:white; margin-top:5px;" onclick="state.bills.splice(${idx}, 1);save()">Del</button></div>
+                </div>`).join('')}`;
+    }
+
+    else if (activeTab === 'schedule') {
+        let rows = getSchedule();
+        if (scheduleMode === 'period') {
+            rows = rows.filter(r => r.date >= p.startStr && r.date <= p.endStr);
+        } else {
+            const end30 = new Date(); end30.setDate(end30.getDate() + 30);
+            rows = rows.filter(r => r.date >= new Date().toISOString().split('T')[0] && r.date <= end30.toISOString().split('T')[0]);
+        }
+        
+        content.innerHTML = `
+            <div class="flex-between" style="padding: 10px 15px; margin-bottom: 5px;">
+                <button class="mini-btn ${scheduleMode==='period'?'btn':''}" style="${scheduleMode==='period'?'':'background:#e0e0e0; color:#333'}" onclick="scheduleMode='period';render()">Pay Period</button>
+                <button class="mini-btn ${scheduleMode==='all'?'btn':''}" style="${scheduleMode==='all'?'':'background:#e0e0e0; color:#333'}" onclick="scheduleMode='all';render()">Next 30 Days</button>
+            </div>
+            ${scheduleMode === 'period' ? `
+            <div class="flex-between" style="padding: 0 20px 15px;">
+                <button class="mini-btn" style="background:#ddd" onclick="periodOffset--;render()">❮ Prev</button>
+                <strong>${p.startStr} to ${p.endStr}</strong>
+                <button class="mini-btn" style="background:#ddd" onclick="periodOffset++;render()">Next ❯</button>
+            </div>` : ''}
+            
+            ${rows.length === 0 ? '<div class="panel" style="text-align:center; color:#7f8c8d;">No bills in this timeframe.</div>' : ''}
+            
+            ${rows.map(r => `
+                <div class="panel flex-between" style="opacity:${r.paid?0.5:1}; transition: 0.3s; margin-top: 5px;">
+                    <div><small style="color:#7f8c8d; font-weight:bold;">${r.date}</small><br><strong style="font-size:1.1rem;">${r.name}</strong></div>
+                    <div style="text-align:right">
+                        <input type="number" style="width:70px;text-align:right; border:1px solid #ddd; padding:4px; border-radius:4px;" value="${r.amount}" onchange="state.scheduleMeta['${r.id}']={...state.scheduleMeta['${r.id}'], actual:parseFloat(this.value)};save()">
+                        <br><button class="mini-btn" style="margin-top:8px; background:${r.paid?'var(--secondary)':'#e0e0e0'}; color:${r.paid?'white':'#333'};" onclick="state.scheduleMeta['${r.id}']={...state.scheduleMeta['${r.id}'], paid:!${r.paid}};save()">${r.paid?'Paid ✓':'Mark Paid'}</button>
+                    </div>
+                </div>`).join('')}`;
+    }
+
+    else if (activeTab === 'budget') {
+        content.innerHTML = `
+            <div class="panel">
+                <h3 style="margin-top:0; color:var(--primary); display:flex; justify-content:space-between;">Budget Analysis <span style="background:#eee; padding:4px 8px; border-radius:8px; font-size:0.8rem; color:#555;">${p.startStr} - ${p.endStr}</span></h3>
+                <hr>
+                <div class="stack">
+                    <div class="flex-between"><span>Carryover Balance</span> <strong>${format(state.settings.initialBalance)}</strong></div>
+                    <div class="flex-between"><span>Planned Income</span> <strong class="text-green">+${format(periodDep)}</strong></div>
+                    <div class="flex-between"><span>Expected Bills</span> <strong class="text-red">-${format(periodBills)}</strong></div>
+                    <div class="flex-between"><span>Other Spending</span> <strong class="text-red">-${format(periodSpend)}</strong></div>
+                    <hr>
+                    <div class="flex-between" style="font-size:1.2rem;">
+                        <strong>Remaining</strong> <strong class="text-blue">${format(remaining)}</strong>
                     </div>
                 </div>
             </div>`;
     }
 
-    if (activeTab === 'spending' || activeTab === 'deposits') {
+    else if (activeTab === 'spending' || activeTab === 'deposits') {
         const isDep = activeTab === 'deposits';
         const list = isDep ? state.deposits : state.spending;
         content.innerHTML = `
@@ -122,249 +234,55 @@ function render() {
                 <h3>Add ${isDep ? 'Deposit' : 'Spending'}</h3>
                 <div class="stack">
                     <input id="add-n" placeholder="Description" class="field">
-                    <input id="add-a" type="number" placeholder="Amount" class="field">
+                    <input id="add-a" type="number" placeholder="$ Amount" class="field">
                     <input id="add-d" type="date" class="field" value="${new Date().toISOString().split('T')[0]}">
                     <button class="btn" onclick="addItem('${activeTab}')">Save Entry</button>
                 </div>
             </div>
             ${list.map((item, idx) => `
-                <div class="panel flex-between">
-                    <div><strong>${item.name}</strong><br><small>${item.date}</small></div>
-                    <div><strong>${format(item.amount)}</strong> <button onclick="deleteItem('${activeTab}', ${idx})" style="border:none; background:none; color:red; margin-left:10px;">✕</button></div>
+                <div class="panel flex-between" style="padding: 15px;">
+                    <div><strong style="font-size:1.1rem;">${item.name}</strong><br><small style="color:#7f8c8d;">${item.date}</small></div>
+                    <div style="text-align:right;"><strong>${format(item.amount)}</strong><br><button class="mini-btn" style="background:var(--danger); color:white; margin-top:5px;" onclick="deleteItem('${activeTab}', ${idx})">Del</button></div>
                 </div>`).join('')}`;
     }
 
-    if (activeTab === 'settings') {
+    else if (activeTab === 'settings') {
         content.innerHTML = `
             <div class="panel">
                 <h3>Configuration</h3>
                 <div class="stack">
-                    <label><small>Your Name</small></label>
+                    <label><small style="color:#7f8c8d; font-weight:bold;">Your Name</small></label>
                     <input class="field" value="${state.userName}" onchange="state.userName=this.value;save()">
-                    <label><small>Start Balance</small></label>
+                    
+                    <label><small style="color:#7f8c8d; font-weight:bold;">Start Balance</small></label>
                     <input type="number" class="field" value="${state.settings.initialBalance}" onchange="state.settings.initialBalance=parseFloat(this.value);save()">
-                    <label><small>Pay Period Anchor Date</small></label>
+                    
+                    <label><small style="color:#7f8c8d; font-weight:bold;">Pay Period Anchor Date</small></label>
                     <input type="date" class="field" value="${state.settings.anchorDate}" onchange="state.settings.anchorDate=this.value;save()">
-                    <label><small>Days Per Period</small></label>
+                    
+                    <label><small style="color:#7f8c8d; font-weight:bold;">Days Per Period</small></label>
                     <input type="number" class="field" value="${state.settings.periodDays}" onchange="state.settings.periodDays=parseInt(this.value);save()">
-                    <button class="btn" style="background:var(--danger); margin-top:20px;" onclick="if(confirm('Clear all data?')){state=defaultData;save()}">Reset App</button>
                 </div>
+            </div>
+            <div class="panel">
+                <h3>Data</h3>
+                <button class="btn" style="background:var(--danger);" onclick="if(confirm('Are you completely sure you want to clear all data? This cannot be undone.')){state=defaultData;save();}">Wipe Data & Reset</button>
             </div>`;
     }
-    // (Other tabs like Bills/Schedule use similar patterns as previous working versions)
 }
+
+// --- GLOBAL ACTIONS ---
+window.addBill = () => {
+    const n = document.getElementById('bn').value, a = parseFloat(document.getElementById('ba').value), d = document.getElementById('bd').value, f = document.getElementById('bf').value;
+    if(n && a && d) { state.bills.push({ id: makeId(), name: n, amount: a, date: d, freq: f }); save(); }
+};
 
 window.addItem = (type) => {
     const n = document.getElementById('add-n').value, a = parseFloat(document.getElementById('add-a').value), d = document.getElementById('add-d').value;
     if(n && a && d) { state[type].push({name:n, amount:a, date:d}); save(); }
 };
+
 window.deleteItem = (type, idx) => { state[type].splice(idx, 1); save(); };
 
-render();
-
-
-const TABS = [
-  { id: 'dashboard', label: 'Dashboard' },
-  { id: 'bills', label: 'Bills' },
-  { id: 'schedule', label: 'Schedule' },
-  { id: 'budget', label: 'Budget Tracker' },
-  { id: 'spending', label: 'Other Spending' },
-  { id: 'deposits', label: 'Deposits' },
-  { id: 'settings', label: 'Settings' },
-];
-
-// --- STYLES ---
-const style = document.createElement('style');
-style.textContent = `
-    :root {
-        --primary: #3498db;
-        --secondary: #2ecc71;
-        --danger: #e74c3c;
-        --bg: #f8f9fa;
-        --card-bg: #ffffff;
-        --text-main: #2d3436;
-        --text-sub: #636e72;
-    }
-    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--text-main); margin: 0; padding: 0; }
-    
-    #tabs-container {
-        overflow-x: auto;
-        white-space: nowrap;
-        padding: 15px 10px;
-        background: #fff;
-        border-bottom: 1px solid #eee;
-        position: sticky;
-        top: 0;
-        z-index: 100;
-    }
-    
-    .tab-btn { 
-        display: inline-block;
-        padding: 10px 18px; 
-        border-radius: 20px; 
-        border: none; 
-        background: #eee; 
-        cursor: pointer; 
-        font-weight: 600; 
-        font-size: 0.85rem; 
-        margin-right: 8px;
-    }
-    .tab-btn.active { background: var(--primary); color: white; }
-
-    .panel { background: var(--card-bg); border-radius: 16px; padding: 20px; margin: 15px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
-    .hero-value { font-size: 2.5rem; font-weight: 800; color: var(--primary); margin: 10px 0; }
-    .stack { display: flex; flex-direction: column; gap: 12px; }
-    .field { width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #ddd; box-sizing: border-box; font-size: 1rem; }
-    .btn { background: var(--primary); color: white; border: none; padding: 14px; border-radius: 8px; font-weight: 700; cursor: pointer; }
-    .mini-btn { padding: 6px 12px; border-radius: 6px; border: none; font-size: 0.75rem; cursor: pointer; }
-    .hidden { display: none; }
-    .flex-between { display: flex; justify-content: space-between; align-items: center; }
-    .arrow-btn { background: #eee; border: none; width: 36px; height: 36px; border-radius: 50%; cursor: pointer; font-weight: bold; }
-`;
-document.head.appendChild(style);
-
-// --- APP HTML STRUCTURE ---
-document.body.innerHTML = `
-    <div id="tabs-container"></div>
-    <div id="main-content">
-        <div id="tab-dashboard" class="tab-panel"></div>
-        <div id="tab-bills" class="tab-panel hidden"></div>
-        <div id="tab-schedule" class="tab-panel hidden"></div>
-        <div id="tab-budget" class="tab-panel hidden"></div>
-        <div id="tab-spending" class="tab-panel hidden"></div>
-        <div id="tab-deposits" class="tab-panel hidden"></div>
-        <div id="tab-settings" class="tab-panel hidden"></div>
-    </div>
-`;
-
-// --- UTILS ---
-function makeId(p) { return p + '-' + Math.random().toString(36).slice(2, 9); }
-function toISO(d) { return d.toISOString().split('T')[0]; }
-function parseISO(s) { const b = s.split('-'); return new Date(b[0], b[1]-1, b[2]); }
-function addDays(d, n) { const r = new Date(d); r.setDate(r.getDate() + n); return r; }
-function format(v) { return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(v || 0); }
-
-// --- DATA ---
-const defaultData = {
-  userName: 'Baller',
-  settings: { initialBalance: 0, anchorDate: toISO(new Date()), periodDays: 14 },
-  bills: [], spending: [], deposits: [], scheduleMeta: {}
-};
-
-let state = JSON.parse(localStorage.getItem(STORAGE_KEY)) || defaultData;
-let activeTab = 'dashboard', periodOffset = 0, scheduleMode = 'period';
-
-function save() { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); render(); }
-
-// --- CALCULATIONS ---
-function getPeriod() {
-    const start = addDays(parseISO(state.settings.anchorDate), periodOffset * state.settings.periodDays);
-    const end = addDays(start, state.settings.periodDays - 1);
-    return { start, end };
-}
-
-function getSchedule() {
-    const rows = [];
-    const limit = addDays(new Date(), 365);
-    state.bills.forEach(b => {
-        let curr = parseISO(b.date);
-        while (curr <= limit) {
-            const dStr = toISO(curr);
-            const key = `${b.id}_${dStr}`;
-            const meta = state.scheduleMeta[key] || {};
-            rows.push({
-                id: key, date: dStr, name: b.name, 
-                amount: meta.actual !== undefined ? meta.actual : b.amount,
-                paid: !!meta.paid
-            });
-            if (b.freq === 'Weekly') curr = addDays(curr, 7);
-            else if (b.freq === 'Bi-Weekly') curr = addDays(curr, 14);
-            else if (b.freq === 'Monthly') { curr.setMonth(curr.getMonth() + 1); }
-            else break;
-        }
-    });
-    return rows.sort((a, b) => a.date.localeCompare(b.date));
-}
-
-// --- RENDERING ---
-function render() {
-    // Render Tabs (without wiping container to prevent snap)
-    const tabsBox = document.getElementById('tabs-container');
-    tabsBox.innerHTML = TABS.map(t => `<button class="tab-btn ${activeTab === t.id ? 'active' : ''}" onclick="activeTab='${t.id}';render()">${t.label}</button>`).join('');
-    
-    // Switch Visibility
-    document.querySelectorAll('.tab-panel').forEach(p => p.classList.add('hidden'));
-    const currentPanel = document.getElementById(`tab-${activeTab}`);
-    currentPanel.classList.remove('hidden');
-
-    if (activeTab === 'dashboard') {
-        const p = getPeriod();
-        const sched = getSchedule().filter(r => r.date >= toISO(p.start) && r.date <= toISO(p.end));
-        const totalBills = sched.reduce((s, r) => s + r.amount, 0);
-        currentPanel.innerHTML = `
-            <div class="panel" style="text-align:center;">
-                <small>Welcome back, ${state.userName}</small>
-                <div class="hero-value">${format(state.settings.initialBalance - totalBills)}</div>
-                <small>Projected Remaining This Period</small>
-            </div>`;
-    }
-
-    if (activeTab === 'schedule') {
-        const p = getPeriod();
-        let rows = getSchedule();
-        if (scheduleMode === 'period') rows = rows.filter(r => r.date >= toISO(p.start) && r.date <= toISO(p.end));
-        
-        currentPanel.innerHTML = `
-            <div class="flex-between" style="padding: 15px;">
-                <button class="mini-btn ${scheduleMode==='period'?'active btn':''}" onclick="scheduleMode='period';render()">Period</button>
-                <button class="mini-btn ${scheduleMode==='all'?'active btn':''}" onclick="scheduleMode='all';render()">Next 30 Days</button>
-            </div>
-            <div class="flex-between" style="padding: 0 15px 10px;">
-                <button class="arrow-btn" onclick="periodOffset--;render()">❮</button>
-                <strong>${toISO(p.start)} to ${toISO(p.end)}</strong>
-                <button class="arrow-btn" onclick="periodOffset++;render()">❯</button>
-            </div>
-            ${rows.map(r => `
-                <div class="panel flex-between" style="opacity:${r.paid?0.5:1}">
-                    <div><small>${r.date}</small><br><strong>${r.name}</strong></div>
-                    <div style="text-align:right">
-                        <input type="number" style="width:60px;text-align:right;" value="${r.amount}" onchange="state.scheduleMeta['${r.id}']={...state.scheduleMeta['${r.id}'], actual:parseFloat(this.value)};save()">
-                        <br><button class="mini-btn" style="margin-top:5px;background:${r.paid?'#2ecc71':'#eee'}" onclick="state.scheduleMeta['${r.id}']={...state.scheduleMeta['${r.id}'], paid:!${r.paid}};save()">${r.paid?'Paid':'Mark Paid'}</button>
-                    </div>
-                </div>`).join('')}`;
-    }
-
-    if (activeTab === 'bills') {
-        currentPanel.innerHTML = `
-            <div class="panel"><h3>Add Bill</h3>
-                <div class="stack">
-                    <input id="bn" placeholder="Name" class="field">
-                    <input id="ba" type="number" placeholder="Amount" class="field">
-                    <input id="bd" type="date" class="field">
-                    <select id="bf" class="field"><option>Monthly</option><option>Weekly</option><option>Bi-Weekly</option></select>
-                    <button class="btn" onclick="addBill()">Save Bill</button>
-                </div>
-            </div>
-            ${state.bills.map(b => `<div class="panel flex-between"><div><strong>${b.name}</strong><br><small>${b.freq} - ${format(b.amount)}</small></div><button class="mini-btn" onclick="state.bills=state.bills.filter(x=>x.id!=='${b.id}');save()">Del</button></div>`).join('')}`;
-    }
-
-    if (activeTab === 'settings') {
-        currentPanel.innerHTML = `
-            <div class="panel"><h3>Config</h3>
-                <div class="stack">
-                    <label>User Name</label><input class="field" value="${state.userName}" onchange="state.userName=this.value;save()">
-                    <label>Start Balance</label><input type="number" class="field" value="${state.settings.initialBalance}" onchange="state.settings.initialBalance=parseFloat(this.value);save()">
-                    <label>Anchor Date</label><input type="date" class="field" value="${state.settings.anchorDate}" onchange="state.settings.anchorDate=this.value;save()">
-                    <label>Days Per Period</label><input type="number" class="field" value="${state.settings.periodDays}" onchange="state.settings.periodDays=parseInt(this.value);save()">
-                    <button class="btn" style="background:#e74c3c" onclick="if(confirm('Reset?')){state=defaultData;save()}">Reset All Data</button>
-                </div>
-            </div>`;
-    }
-}
-
-function addBill() {
-    const name = document.getElementById('bn').value, amt = parseFloat(document.getElementById('ba').value), dt = document.getElementById('bd').value, fr = document.getElementById('bf').value;
-    if(name && amt && dt) { state.bills.push({ id: makeId('b'), name, amount: amt, date: dt, freq: fr }); save(); }
-}
-
+// Boot App
 render();
