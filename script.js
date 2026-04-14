@@ -1,4 +1,4 @@
-const STORAGE_KEY = 'budgetflow-v7';
+const STORAGE_KEY = 'budgetflow-v9';
 
 const TABS = [
   { id: 'dashboard', label: 'Dashboard' },
@@ -17,6 +17,7 @@ style.textContent = `
     body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg); margin: 0; padding-bottom: 80px; color: #333; }
     #header { background: var(--primary); color: white; padding: 20px 15px 10px; text-align: center; }
     #header h1 { margin: 0; font-size: 1.5rem; font-weight: 800; }
+    #greeting { font-size: 0.9rem; margin-top: 5px; opacity: 0.9; }
     #tabs-container { overflow-x: auto; white-space: nowrap; padding: 12px; background: #fff; border-bottom: 1px solid #eee; position: sticky; top: 0; z-index: 100; display: flex; gap: 8px; }
     #tabs-container::-webkit-scrollbar { display: none; }
     .tab-btn { padding: 8px 16px; border-radius: 20px; border: none; background: #f0f2f5; cursor: pointer; font-weight: 600; font-size: 0.85rem; }
@@ -32,30 +33,40 @@ style.textContent = `
     .progress-bg { background: #eee; border-radius: 10px; height: 10px; width: 100%; margin: 10px 0; overflow: hidden; }
     .progress-fill { background: var(--secondary); height: 100%; transition: width 0.3s; }
     .paid { color: var(--secondary); font-weight: bold; }
+    .clickable-amount { cursor: pointer; transition: opacity 0.2s; }
+    .clickable-amount:hover { opacity: 0.7; }
 `;
 document.head.appendChild(style);
 
 // --- APP INITIALIZATION ---
-document.body.innerHTML = `<div id="header"><h1>BudgetFlow</h1></div><div id="tabs-container"></div><div id="main-content"></div>`;
+document.body.innerHTML = `
+    <div id="header">
+        <h1>BudgetFlow</h1>
+        <div id="greeting"></div>
+    </div>
+    <div id="tabs-container"></div>
+    <div id="main-content"></div>
+`;
 
 const defaultData = {
-    userName: 'User',
-    settings: { initialBalance: 0, anchorDate: '2026-04-11', periodDays: 14, themeColor: '#5fa8e6' },
+    userName: 'Baller',
+    settings: { initialBalance: 0, rollover: 0, anchorDate: '2026-04-11', periodDays: 14, themeColor: '#5fa8e6' },
     bills: [], spending: [], deposits: [], scheduleMeta: {}, goals: []
 };
 
 let state;
 try {
-    state = JSON.parse(localStorage.getItem(STORAGE_KEY)) || defaultData;
+    state = JSON.parse(localStorage.getItem(STORAGE_KEY)) || JSON.parse(localStorage.getItem('budgetflow-v8')) || JSON.parse(localStorage.getItem('budgetflow-v7')) || defaultData;
 } catch (e) { state = defaultData; }
 
-// Ensure all keys exist
+state.userName = state.userName || 'Baller';
 state.bills = state.bills || [];
 state.spending = state.spending || [];
 state.deposits = state.deposits || [];
 state.goals = state.goals || [];
 state.scheduleMeta = state.scheduleMeta || {};
 state.settings = { ...defaultData.settings, ...state.settings };
+state.settings.rollover = state.settings.rollover || 0;
 
 let activeTab = 'dashboard';
 let periodOffset = 0;
@@ -100,6 +111,8 @@ function getSchedule() {
 
 function render() {
     try {
+        document.getElementById('greeting').innerText = `Welcome, ${state.userName}`;
+
         const p = getPeriod();
         document.getElementById('tabs-container').innerHTML = TABS.map(t => `<button class="tab-btn ${activeTab === t.id ? 'active' : ''}" onclick="activeTab='${t.id}';render()">${t.label}</button>`).join('');
         const content = document.getElementById('main-content');
@@ -116,11 +129,12 @@ function render() {
             const billsTotal = sched.reduce((s, r) => s + (r.actual ?? r.amount), 0);
             const spentTotal = state.spending.filter(s => s.date >= p.startStr && s.date <= p.endStr).reduce((s, x) => s + x.amount, 0);
             const depositTotal = state.deposits.filter(d => d.date >= p.startStr && d.date <= p.endStr).reduce((s, x) => s + x.amount, 0);
+            const currentBalance = state.settings.initialBalance + state.settings.rollover;
             
             content.innerHTML = periodNav + `
                 <div class="panel" style="text-align:center">
                     <small style="color:#888; font-weight:bold">PROJECTED REMAINING</small>
-                    <div style="font-size:2.2rem; font-weight:800; color:var(--primary)">${format(state.settings.initialBalance + depositTotal - billsTotal - spentTotal)}</div>
+                    <div style="font-size:2.2rem; font-weight:800; color:var(--primary)">${format(currentBalance + depositTotal - billsTotal - spentTotal)}</div>
                 </div>
                 <div class="stat-grid" style="margin: 0 12px;">
                     <div class="panel" style="margin:0"><small>Period Bills</small><div style="font-weight:700; color:var(--danger)">${format(billsTotal)}</div></div>
@@ -168,11 +182,13 @@ function render() {
                 ${state.bills.map((b, i) => `
                     <div class="panel flex-between">
                         <div><strong>${b.name}</strong><br><small>${format(b.amount)} • ${b.freq}</small></div>
-                        <button class="mini-btn" style="color:var(--danger)" onclick="state.bills.splice(${i},1);save()">✕</button>
+                        <div style="display:flex; gap:5px">
+                            <button class="mini-btn btn-outline" onclick="editBill('${b.id}')">Edit</button>
+                            <button class="mini-btn" style="color:var(--danger)" onclick="state.bills.splice(${i},1);save()">✕</button>
+                        </div>
                     </div>`).join('')}`;
         }
         else if (activeTab === 'schedule' || activeTab === 'spending' || activeTab === 'deposits') {
-            // ... (Shared logic for existing tabs kept identical to V6)
             const isSpend = activeTab === 'spending';
             const isSched = activeTab === 'schedule';
             const list = isSched ? getSchedule().filter(r => r.date >= p.startStr && r.date <= p.endStr) : state[activeTab].filter(x => x.date >= p.startStr && x.date <= p.endStr);
@@ -185,27 +201,49 @@ function render() {
                     <input id="tx-d" type="date" class="field" value="${p.startStr}">
                     <button class="btn" onclick="addTx('${activeTab}')">Save Entry</button>
                 </div>`) + 
-                list.map((x, i) => `
-                    <div class="panel flex-between">
+                list.map((x, i) => {
+                    // Logic to display the amount based on tab
+                    let amountDisplay = '';
+                    if (isSched) {
+                        amountDisplay = `<div onclick="updateActual('${x.rowKey}', ${x.amount})" class="clickable-amount" style="font-weight:bold; color:#333;">
+                            ${x.actual ? `<span class="paid">${format(x.actual)}</span>` : format(x.amount)}
+                        </div>`;
+                    } else {
+                        amountDisplay = `<div style="font-weight:bold; color:${isSpend ? 'var(--danger)' : 'var(--secondary)'}">${format(x.amount)}</div>`;
+                    }
+
+                    return `
+                    <div class="panel flex-between" style="${isSched && x.paid ? 'opacity:0.6' : ''}">
                         <div><strong>${x.name}</strong><br><small>${x.date}</small></div>
                         <div style="text-align:right">
-                            <div style="font-weight:bold; color:${isSpend ? 'var(--danger)' : isSched ? '#333' : 'var(--secondary)'}">
-                                ${isSched && x.actual ? `<span class="paid">${format(x.actual)}</span>` : format(x.amount)}
-                            </div>
+                            ${amountDisplay}
                             ${isSched ? `<button class="mini-btn ${x.paid ? '' : 'btn-outline'}" style="margin-top:5px" onclick="togglePaid('${x.rowKey}')">${x.paid ? '✓ Paid' : 'Mark Paid'}</button>` : ''}
                         </div>
-                    </div>`).join('');
+                    </div>`;
+                }).join('');
         }
         else if (activeTab === 'settings') {
             content.innerHTML = `
                 <div class="panel">
-                    <h3>Pay Cycle Config</h3>
-                    <label><small>Starting Bank Balance</small></label><input type="number" class="field" value="${state.settings.initialBalance}" onchange="state.settings.initialBalance=parseFloat(this.value);save()">
-                    <label><small>Next Payday (Anchor Date)</small></label><input type="date" class="field" value="${state.settings.anchorDate}" onchange="state.settings.anchorDate=this.value;save()">
+                    <h3>User Profile</h3>
+                    <label><small>Your Name</small></label>
+                    <input type="text" class="field" value="${state.userName}" onchange="state.userName=this.value;save()">
                 </div>
                 <div class="panel">
-                    <button class="btn btn-outline" onclick="exportData()">Export CSV</button>
-                    <button class="btn" style="background:var(--danger); margin-top:20px;" onclick="if(confirm('Wipe all?')){state=defaultData;save();}">Reset All</button>
+                    <h3>Pay Cycle Config</h3>
+                    <label><small>Starting Bank Balance</small></label>
+                    <input type="number" class="field" value="${state.settings.initialBalance}" onchange="state.settings.initialBalance=parseFloat(this.value);save()">
+                    <label><small>Manual Rollover Amount</small></label>
+                    <input type="number" class="field" value="${state.settings.rollover}" onchange="state.settings.rollover=parseFloat(this.value);save()">
+                    <label><small>Next Payday (Anchor Date)</small></label>
+                    <input type="date" class="field" value="${state.settings.anchorDate}" onchange="state.settings.anchorDate=this.value;save()">
+                </div>
+                <div class="panel">
+                    <h3>Data Management</h3>
+                    <button class="btn btn-outline" onclick="exportExcel()">Export CSV for Excel</button>
+                    <button class="btn btn-outline" style="margin-top:10px" onclick="exportJSON()">Backup Data (JSON)</button>
+                    <button class="btn btn-outline" style="margin-top:10px" onclick="importJSON()">Import Backup Data</button>
+                    <button class="btn" style="background:var(--danger); margin-top:20px;" onclick="if(confirm('Wipe all data?')){state=defaultData;save();}">Reset All</button>
                 </div>`;
         }
     } catch (err) {
@@ -218,37 +256,60 @@ window.addGoal = () => {
     const n = document.getElementById('gn').value, t = parseFloat(document.getElementById('gt').value);
     if(n && t) { state.goals.push({ id: Math.random().toString(36).substr(2,9), name: n, target: t, current: 0 }); save(); }
 };
-
 window.fundGoal = (id) => {
     const amt = parseFloat(prompt("How much would you like to contribute?"));
     if (!amt || isNaN(amt)) return;
     const g = state.goals.find(x => x.id === id);
     g.current += amt;
-    // Log this as spending for the current period
     const today = new Date().toISOString().split('T')[0];
     state.spending.push({ name: `Goal: ${g.name}`, amount: amt, date: today });
     save();
 };
-
 window.addBill = () => {
     const n = document.getElementById('bn').value, a = parseFloat(document.getElementById('ba').value), d = document.getElementById('bd').value, f = document.getElementById('bf').value, c = document.getElementById('bc')?.value || 0;
     if(n && a && d) { state.bills.push({ id: Math.random().toString(36).substr(2,9), name: n, amount: a, date: d, freq: f, customDays: c }); save(); }
 };
-
+window.editBill = (id) => {
+    const b = state.bills.find(x => x.id === id);
+    const newAmt = prompt(`New amount for ${b.name}:`, b.amount);
+    if (newAmt) { b.amount = parseFloat(newAmt); save(); }
+};
 window.togglePaid = (key) => {
     state.scheduleMeta[key] = state.scheduleMeta[key] || { paid: false };
     state.scheduleMeta[key].paid = !state.scheduleMeta[key].paid;
     save();
 };
-
+window.updateActual = (key, current) => {
+    const val = prompt("Enter actual amount paid:", current);
+    if (val) {
+        state.scheduleMeta[key] = state.scheduleMeta[key] || {};
+        state.scheduleMeta[key].actual = parseFloat(val);
+        state.scheduleMeta[key].paid = true;
+        save();
+    }
+};
 window.addTx = (type) => {
     const n = document.getElementById('tx-n').value, a = parseFloat(document.getElementById('tx-a').value), d = document.getElementById('tx-d').value;
     if(n && a && d) { state[type].push({ name: n, amount: a, date: d }); save(); }
 };
 
-window.exportData = () => {
+// --- DATA MANAGEMENT ---
+window.exportExcel = () => {
+    let csv = "Type,Date,Name,Amount\n";
+    state.bills.forEach(b => csv += `Bill,${b.date},"${b.name}",${b.amount}\n`);
+    state.spending.forEach(s => csv += `Spend,${s.date},"${s.name}",${s.amount}\n`);
+    state.deposits.forEach(d => csv += `Deposit,${d.date},"${d.name}",${d.amount}\n`);
+    state.goals.forEach(g => csv += `Goal Target,, "${g.name}",${g.target}\n`);
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'budget_export.csv'; a.click();
+};
+window.exportJSON = () => {
     const blob = new Blob([JSON.stringify(state)], { type: 'application/json' });
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'budget_backup.json'; a.click();
+};
+window.importJSON = () => {
+    const json = prompt("Paste your JSON backup data:");
+    if (json) { try { state = JSON.parse(json); save(); } catch(e) { alert("Invalid JSON format"); } }
 };
 
 render();
