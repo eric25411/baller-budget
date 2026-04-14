@@ -38,11 +38,13 @@ const defaultData = {
 };
 
 let state = JSON.parse(localStorage.getItem(STORAGE_KEY)) || clone(defaultData);
-let activeTab = 'dashboard', scheduleSearch = '', spendingSearch = '', scheduleFilterMode = 'all', currentPeriodOffset = 0, editingBillId = null;
+let activeTab = 'dashboard', scheduleSearch = '', spendingSearch = '', depositSearch = '';
+let scheduleFilterMode = 'all', spendingFilterMode = 'period', depositFilterMode = 'period';
+let currentPeriodOffset = 0, editingBillId = null;
 
 function saveState() { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); renderApp(); }
 function setTab(id) { 
-    if(id === 'budget') currentPeriodOffset = getTodayOffset(); 
+    if(['budget', 'spending', 'deposits', 'schedule'].includes(id)) currentPeriodOffset = getTodayOffset(); 
     activeTab = id; 
     renderApp(); 
 }
@@ -114,7 +116,86 @@ function calculatePeriodStats(offset) {
     return { start, end, carryOver, pIncome, pSpending, pBills, totalLeft: (carryOver + pIncome - pBills - pSpending) };
 }
 
-// --- RENDERING FUNCTIONS ---
+// --- UPDATED RENDERS ---
+
+function renderSpending() {
+  const { start, end } = getPeriodDates(currentPeriodOffset);
+  let rows = state.spending;
+  
+  if (spendingFilterMode === 'period') {
+      rows = rows.filter(s => { const dt = parseISODate(s.date); return dt >= start && dt <= end; });
+  }
+  if (spendingSearch) {
+      rows = rows.filter(s => s.description.toLowerCase().includes(spendingSearch.toLowerCase()));
+  }
+
+  document.getElementById('tab-spending').innerHTML = `
+    <div class="panel">
+        <div class="stack">
+            <input type="text" id="spDesc" class="field" placeholder="Description">
+            <div style="display:flex; gap:10px;">
+                <input type="number" id="spAmt" class="field" placeholder="$" style="flex:1">
+                <input type="date" id="spDate" class="field" value="${toISODate(new Date())}" style="flex:2">
+            </div>
+            <button class="btn" onclick="addSpending()">Add Expense</button>
+        </div>
+    </div>
+    <div class="panel">
+        <input type="text" class="field" placeholder="Search history..." value="${spendingSearch}" oninput="spendingSearch=this.value;renderSpending()">
+        <div style="display:flex; gap:5px; margin-top:10px;">
+            <button class="mini-btn ${spendingFilterMode==='all'?'active':''}" onclick="spendingFilterMode='all';renderSpending()">All Time</button>
+            <button class="mini-btn ${spendingFilterMode==='period'?'active':''}" onclick="spendingFilterMode='period';renderSpending()">This Period</button>
+        </div>
+        ${spendingFilterMode === 'period' ? `
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-top:15px;">
+                <button class="mini-btn" onclick="currentPeriodOffset--;renderSpending()">◀</button>
+                <strong>${formatDateRange(start, end)}</strong>
+                <button class="mini-btn" onclick="currentPeriodOffset++;renderSpending()">▶</button>
+            </div>` : ''}
+    </div>
+    <div class="table-wrap"><table><tbody>${rows.sort((a,b)=>b.date.localeCompare(a.date)).map(s => `<tr><td><small>${s.date}</small><br><strong>${s.description}</strong></td><td style="text-align:right;">${formatMoney(s.amount)}<br><button class="mini-btn danger-btn" onclick="deleteItem('spending','${s.id}')">Del</button></td></tr>`).join('')}</tbody></table></div>`;
+}
+
+function renderDeposits() {
+  const { start, end } = getPeriodDates(currentPeriodOffset);
+  let rows = state.deposits;
+  
+  if (depositFilterMode === 'period') {
+      rows = rows.filter(d => { const dt = parseISODate(d.date); return dt >= start && dt <= end; });
+  }
+  if (depositSearch) {
+      rows = rows.filter(d => d.description.toLowerCase().includes(depositSearch.toLowerCase()));
+  }
+
+  document.getElementById('tab-deposits').innerHTML = `
+    <div class="panel">
+        <div class="stack">
+            <input type="text" id="dpDesc" class="field" placeholder="Source">
+            <div style="display:flex; gap:10px;">
+                <input type="number" id="dpAmt" class="field" placeholder="$" style="flex:1">
+                <input type="date" id="dpDate" class="field" value="${toISODate(new Date())}" style="flex:2">
+            </div>
+            <button class="btn" onclick="addDeposit()">Add Income</button>
+        </div>
+    </div>
+    <div class="panel">
+        <input type="text" class="field" placeholder="Search income..." value="${depositSearch}" oninput="depositSearch=this.value;renderDeposits()">
+        <div style="display:flex; gap:5px; margin-top:10px;">
+            <button class="mini-btn ${depositFilterMode==='all'?'active':''}" onclick="depositFilterMode='all';renderDeposits()">All Time</button>
+            <button class="mini-btn ${depositFilterMode==='period'?'active':''}" onclick="depositFilterMode='period';renderDeposits()">This Period</button>
+        </div>
+        ${depositFilterMode === 'period' ? `
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-top:15px;">
+                <button class="mini-btn" onclick="currentPeriodOffset--;renderDeposits()">◀</button>
+                <strong>${formatDateRange(start, end)}</strong>
+                <button class="mini-btn" onclick="currentPeriodOffset++;renderDeposits()">▶</button>
+            </div>` : ''}
+    </div>
+    <div class="table-wrap"><table><tbody>${rows.sort((a,b)=>b.date.localeCompare(a.date)).map(d => `<tr><td><small>${d.date}</small><br><strong>${d.description}</strong></td><td style="text-align:right;">${formatMoney(d.amount)}<br><button class="mini-btn danger-btn" onclick="deleteItem('deposits','${d.id}')">Del</button></td></tr>`).join('')}</tbody></table></div>`;
+}
+
+// --- RE-VERIFIED RENDERS ---
+
 function renderDashboard() {
   const todayOffset = getTodayOffset();
   const stats = calculatePeriodStats(todayOffset);
@@ -192,20 +273,6 @@ function renderBudget() {
             </div>
         </div>
     </div>`;
-}
-
-function renderSpending() {
-  let rows = spendingSearch ? state.spending.filter(s => s.description.toLowerCase().includes(spendingSearch.toLowerCase())) : state.spending;
-  document.getElementById('tab-spending').innerHTML = `
-    <div class="panel"><div class="stack"><input type="text" id="spDesc" class="field" placeholder="Description"><div style="display:flex; gap:10px;"><input type="number" id="spAmt" class="field" placeholder="$" style="flex:1"><input type="date" id="spDate" class="field" value="${toISODate(new Date())}" style="flex:2"></div><button class="btn" onclick="addSpending()">Add Expense</button></div></div>
-    <div class="panel" style="padding: 10px;"><input type="text" class="field" style="margin-bottom:0;" placeholder="Search all history..." value="${spendingSearch}" oninput="spendingSearch=this.value;renderSpending()"></div>
-    <div class="table-wrap"><table><tbody>${rows.sort((a,b)=>b.date.localeCompare(a.date)).map(s => `<tr><td><small>${s.date}</small><br><strong>${s.description}</strong></td><td style="text-align:right;">${formatMoney(s.amount)}<br><button class="mini-btn danger-btn" onclick="deleteItem('spending','${s.id}')">Del</button></td></tr>`).join('')}</tbody></table></div>`;
-}
-
-function renderDeposits() {
-  document.getElementById('tab-deposits').innerHTML = `
-    <div class="panel"><div class="stack"><input type="text" id="dpDesc" class="field" placeholder="Source"><div style="display:flex; gap:10px;"><input type="number" id="dpAmt" class="field" placeholder="$" style="flex:1"><input type="date" id="dpDate" class="field" value="${toISODate(new Date())}" style="flex:2"></div><button class="btn" onclick="addDeposit()">Add Income</button></div></div>
-    <div class="table-wrap"><table><tbody>${state.deposits.sort((a,b)=>b.date.localeCompare(a.date)).map(d => `<tr><td><small>${d.date}</small><br><strong>${d.description}</strong></td><td style="text-align:right;">${formatMoney(d.amount)}<br><button class="mini-btn danger-btn" onclick="deleteItem('deposits','${d.id}')">Del</button></td></tr>`).join('')}</tbody></table></div>`;
 }
 
 function renderSettings() {
