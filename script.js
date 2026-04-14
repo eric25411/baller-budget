@@ -1,4 +1,4 @@
-const STORAGE_KEY = 'budgetflow-v12';
+const STORAGE_KEY = 'budgetflow-v12-1';
 
 const TABS = [
   { id: 'dashboard', label: 'Dashboard' },
@@ -24,7 +24,7 @@ style.textContent = `
     }
 
     body.dark {
-        --bg: #12171e; /* Deep Navy Charcoal */
+        --bg: #12171e; 
         --card-bg: #1e252e; 
         --text: #e0e0e0;
         --border: #2d3743;
@@ -72,8 +72,8 @@ const defaultData = {
 let state;
 try {
     state = JSON.parse(localStorage.getItem(STORAGE_KEY)) || 
+            JSON.parse(localStorage.getItem('budgetflow-v12')) || 
             JSON.parse(localStorage.getItem('budgetflow-v11')) || 
-            JSON.parse(localStorage.getItem('budgetflow-v10')) || 
             defaultData;
 } catch (e) { state = defaultData; }
 
@@ -86,7 +86,7 @@ if (state.darkMode) document.body.classList.add('dark');
 
 let activeTab = 'dashboard';
 let periodOffset = 0;
-let lastTabScroll = 0; // The "Memory" variable
+let lastTabScroll = 0;
 
 const save = () => { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); render(); };
 const format = (v) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(v || 0);
@@ -126,9 +126,7 @@ function getSchedule() {
     return rows.sort((a, b) => a.date.localeCompare(b.date));
 }
 
-// Fixed Render with Scroll Memory
 function render() {
-    // Capture current scroll before wiping UI
     const container = document.getElementById('tabs-container');
     if (container) lastTabScroll = container.scrollLeft;
 
@@ -143,7 +141,6 @@ function render() {
         <div id="main-content"></div>
     `;
 
-    // Restore scroll immediately
     const newContainer = document.getElementById('tabs-container');
     if (newContainer) newContainer.scrollLeft = lastTabScroll;
 
@@ -157,24 +154,29 @@ function render() {
         </div>`;
 
     if (activeTab === 'dashboard') {
-        const sched = getSchedule().filter(r => r.date >= p.startStr && r.date <= p.endStr);
-        const billsTotal = sched.reduce((s, r) => s + (r.actual ?? r.amount), 0);
-        const spentTotal = state.spending.filter(s => s.date >= p.startStr && s.date <= p.endStr).reduce((s, x) => s + x.amount, 0);
-        const depositTotal = state.deposits.filter(d => d.date >= p.startStr && d.date <= p.endStr).reduce((s, x) => s + x.amount, 0);
-        const currentBalance = state.settings.initialBalance + state.settings.rollover;
+        // --- CARRY-FORWARD CALCULATION ---
+        const totalBillsToDate = getSchedule().filter(r => r.date <= p.endStr).reduce((s, r) => s + (r.actual ?? r.amount), 0);
+        const totalSpentToDate = state.spending.filter(s => s.date <= p.endStr).reduce((s, x) => s + x.amount, 0);
+        const totalDepositsToDate = state.deposits.filter(d => d.date <= p.endStr).reduce((s, x) => s + x.amount, 0);
+        const runningBalance = state.settings.initialBalance + state.settings.rollover + totalDepositsToDate - totalBillsToDate - totalSpentToDate;
         
+        // Period Stats (Boxes only)
+        const periodSched = getSchedule().filter(r => r.date >= p.startStr && r.date <= p.endStr);
+        const periodBills = periodSched.reduce((s, r) => s + (r.actual ?? r.amount), 0);
+        const periodIncome = state.deposits.filter(d => d.date >= p.startStr && d.date <= p.endStr).reduce((s, x) => s + x.amount, 0);
+
         content.innerHTML = periodNav + `
             <div class="panel" style="text-align:center">
                 <small style="opacity:0.6; font-weight:bold">PROJECTED REMAINING</small>
-                <div style="font-size:2.2rem; font-weight:800; color:var(--primary)">${format(currentBalance + depositTotal - billsTotal - spentTotal)}</div>
+                <div style="font-size:2.2rem; font-weight:800; color:var(--primary)">${format(runningBalance)}</div>
             </div>
             <div style="display: flex; gap: 10px; margin: 0 12px 12px;">
                 <button class="btn btn-outline" style="margin:0; flex:1;" onclick="quickAdd('spending')">− Quick Spend</button>
                 <button class="btn btn-outline" style="margin:0; flex:1; border-color: var(--secondary); color: var(--secondary)" onclick="quickAdd('deposits')">+ Quick Income</button>
             </div>
             <div class="stat-grid" style="margin: 0 12px;">
-                <div class="panel" style="margin:0"><small>Period Bills</small><div style="font-weight:700; color:var(--danger)">${format(billsTotal)}</div></div>
-                <div class="panel" style="margin:0"><small>Period Income</small><div style="font-weight:700; color:var(--secondary)">${format(depositTotal)}</div></div>
+                <div class="panel" style="margin:0"><small>Period Bills</small><div style="font-weight:700; color:var(--danger)">${format(periodBills)}</div></div>
+                <div class="panel" style="margin:0"><small>Period Income</small><div style="font-weight:700; color:var(--secondary)">${format(periodIncome)}</div></div>
             </div>`;
     }
     else if (activeTab === 'goals') {
