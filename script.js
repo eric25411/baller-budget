@@ -1,4 +1,4 @@
-const STORAGE_KEY = 'budgetflow-v11';
+const STORAGE_KEY = 'budgetflow-v12';
 
 const TABS = [
   { id: 'dashboard', label: 'Dashboard' },
@@ -38,7 +38,7 @@ style.textContent = `
     #tabs-container { overflow-x: auto; white-space: nowrap; padding: 12px; background: var(--card-bg); border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 100; display: flex; gap: 8px; }
     #tabs-container::-webkit-scrollbar { display: none; }
     
-    .tab-btn { padding: 8px 16px; border-radius: 20px; border: none; background: var(--border); color: var(--text); cursor: pointer; font-weight: 600; font-size: 0.85rem; }
+    .tab-btn { padding: 8px 16px; border-radius: 20px; border: none; background: var(--border); color: var(--text); cursor: pointer; font-weight: 600; font-size: 0.85rem; flex-shrink: 0; }
     .tab-btn.active { background: var(--primary); color: white; }
     
     .nav-bar { display: flex; justify-content: space-between; align-items: center; padding: 10px 15px; background: var(--card-bg); margin-bottom: 5px; border-bottom: 1px solid var(--border); }
@@ -71,14 +71,12 @@ const defaultData = {
 
 let state;
 try {
-    // Migration: Attempt to pull from any previous version storage
     state = JSON.parse(localStorage.getItem(STORAGE_KEY)) || 
+            JSON.parse(localStorage.getItem('budgetflow-v11')) || 
             JSON.parse(localStorage.getItem('budgetflow-v10')) || 
-            JSON.parse(localStorage.getItem('budgetflow-v9')) || 
             defaultData;
 } catch (e) { state = defaultData; }
 
-// Safety defaults for existing users
 state.userName = state.userName || 'Baller';
 state.darkMode = !!state.darkMode;
 state.goals = state.goals || [];
@@ -88,6 +86,7 @@ if (state.darkMode) document.body.classList.add('dark');
 
 let activeTab = 'dashboard';
 let periodOffset = 0;
+let lastTabScroll = 0; // The "Memory" variable
 
 const save = () => { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); render(); };
 const format = (v) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(v || 0);
@@ -127,7 +126,12 @@ function getSchedule() {
     return rows.sort((a, b) => a.date.localeCompare(b.date));
 }
 
+// Fixed Render with Scroll Memory
 function render() {
+    // Capture current scroll before wiping UI
+    const container = document.getElementById('tabs-container');
+    if (container) lastTabScroll = container.scrollLeft;
+
     document.body.innerHTML = `
         <div id="header">
             <h1>BudgetFlow</h1>
@@ -138,6 +142,10 @@ function render() {
         </div>
         <div id="main-content"></div>
     `;
+
+    // Restore scroll immediately
+    const newContainer = document.getElementById('tabs-container');
+    if (newContainer) newContainer.scrollLeft = lastTabScroll;
 
     const content = document.getElementById('main-content');
     const p = getPeriod();
@@ -283,7 +291,6 @@ window.quickAdd = (type) => {
     if (!note) return;
     const amount = parseFloat(prompt(`Enter ${label} amount:`));
     if (isNaN(amount) || amount <= 0) return;
-
     const today = new Date().toISOString().split('T')[0];
     state[type].push({ name: note, amount: amount, date: today });
     save();
@@ -335,7 +342,6 @@ window.addTx = (type) => {
     if(n && a && d) { state[type].push({ name: n, amount: a, date: d }); save(); }
 };
 
-// --- DATA MANAGEMENT ---
 window.exportExcel = () => {
     let csv = "Type,Date,Name,Amount\n";
     state.bills.forEach(b => csv += `Bill,${b.date},"${b.name}",${b.amount}\n`);
