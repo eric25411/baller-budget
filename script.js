@@ -1,4 +1,4 @@
-const STORAGE_KEY = 'budgetflow-v3';
+const STORAGE_KEY = 'budgetflow-v4';
 
 const TABS = [
   { id: 'dashboard', label: 'Dashboard' },
@@ -16,11 +16,12 @@ style.textContent = `
     :root { --primary: #5fa8e6; --secondary: #2ecc71; --danger: #e74c3c; --bg: #f4f6f9; --card-bg: #ffffff; }
     body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg); margin: 0; padding-bottom: 50px; color: #333; }
     
-    #header { background: var(--primary); color: white; padding: 25px 15px 20px; text-align: center; }
+    #header { background: var(--primary); color: white; padding: 25px 15px 20px; text-align: center; transition: background 0.3s; }
     #header h1 { margin: 0; font-size: 1.8rem; font-weight: 800; letter-spacing: -0.5px; }
     #user-greeting { margin: 5px 0 0; opacity: 0.9; font-size: 0.9rem; font-weight: 500; }
     
     #tabs-container { overflow-x: auto; white-space: nowrap; padding: 12px; background: #fff; border-bottom: 1px solid #eee; position: sticky; top: 0; z-index: 100; display: flex; gap: 8px; }
+    #tabs-container::-webkit-scrollbar { display: none; }
     .tab-btn { padding: 10px 18px; border-radius: 20px; border: none; background: #f0f2f5; cursor: pointer; font-weight: 600; font-size: 0.85rem; color: #555; transition: 0.2s; }
     .tab-btn.active { background: var(--primary); color: white; }
 
@@ -56,7 +57,7 @@ document.body.innerHTML = `
 // --- DATA HANDLERS & AUTO-HEAL ---
 const defaultData = {
     userName: 'Baller',
-    settings: { initialBalance: 0, anchorDate: new Date().toISOString().split('T')[0], periodDays: 14 },
+    settings: { initialBalance: 0, anchorDate: '2026-04-11', periodDays: 14, themeColor: '#5fa8e6' },
     bills: [], spending: [], deposits: [], scheduleMeta: {}
 };
 
@@ -68,12 +69,12 @@ try {
     state = defaultData;
 }
 
-// Auto-Heal older saves that are missing new fields
 if (!state.bills) state.bills = [];
 if (!state.spending) state.spending = [];
 if (!state.deposits) state.deposits = [];
 if (!state.scheduleMeta) state.scheduleMeta = {};
 if (!state.settings) state.settings = defaultData.settings;
+if (!state.settings.themeColor) state.settings.themeColor = '#5fa8e6';
 if (!state.userName) state.userName = defaultData.userName;
 
 let activeTab = 'dashboard';
@@ -118,6 +119,7 @@ function getSchedule() {
             if (b.freq === 'Weekly') curr.setDate(curr.getDate() + 7);
             else if (b.freq === 'Bi-Weekly') curr.setDate(curr.getDate() + 14);
             else if (b.freq === 'Monthly') curr.setMonth(curr.getMonth() + 1);
+            else if (b.freq === 'Custom' && b.customDays) curr.setDate(curr.getDate() + parseInt(b.customDays));
             else break;
         }
     });
@@ -126,6 +128,9 @@ function getSchedule() {
 
 // --- RENDERING ROUTINE ---
 function render() {
+    // Apply Theme
+    document.documentElement.style.setProperty('--primary', state.settings.themeColor);
+
     document.getElementById('user-greeting').textContent = `Welcome back, ${state.userName}`;
     
     const tabsBox = document.getElementById('tabs-container');
@@ -134,7 +139,6 @@ function render() {
     const content = document.getElementById('main-content');
     const p = getPeriod();
 
-    // Math Calculations
     const periodBills = state.bills.filter(b => b.date >= p.startStr && b.date <= p.endStr).reduce((s, b) => s + b.amount, 0);
     const periodSpend = state.spending.filter(s => s.date >= p.startStr && s.date <= p.endStr).reduce((s, x) => s + x.amount, 0);
     const periodDep = state.deposits.filter(d => d.date >= p.startStr && d.date <= p.endStr).reduce((s, d) => s + d.amount, 0);
@@ -160,18 +164,28 @@ function render() {
                     <input id="bn" placeholder="Name" class="field">
                     <input id="ba" type="number" placeholder="$ Amount" class="field">
                     <input id="bd" type="date" class="field">
-                    <select id="bf" class="field">
+                    <select id="bf" class="field" onchange="document.getElementById('bcWrap').style.display = this.value === 'Custom' ? 'block' : 'none'">
                         <option value="Monthly">Monthly</option>
                         <option value="Weekly">Weekly</option>
                         <option value="Bi-Weekly">Bi-Weekly</option>
+                        <option value="Custom">Custom Days</option>
                     </select>
+                    <div id="bcWrap" style="display:none;">
+                        <input id="bc" type="number" placeholder="Every X Days" class="field">
+                    </div>
                     <button class="btn" onclick="addBill()">Save Bill</button>
                 </div>
             </div>
             ${state.bills.map((b, idx) => `
                 <div class="panel flex-between" style="padding: 15px;">
-                    <div><strong style="font-size:1.1rem;">${b.name}</strong><br><small style="color:#7f8c8d;">${b.freq} • Starts: ${b.date}</small></div>
-                    <div style="text-align:right;"><strong>${format(b.amount)}</strong><br><button class="mini-btn" style="background:var(--danger); color:white; margin-top:5px;" onclick="state.bills.splice(${idx}, 1);save()">Del</button></div>
+                    <div><strong style="font-size:1.1rem;">${b.name}</strong><br><small style="color:#7f8c8d;">${b.freq}${b.freq==='Custom'? ` (${b.customDays} days)` : ''} • Starts: ${b.date}</small></div>
+                    <div style="text-align:right;">
+                        <strong>${format(b.amount)}</strong><br>
+                        <div style="margin-top:5px; display:flex; gap:5px; justify-content:flex-end;">
+                            <button class="mini-btn" style="background:#e0e0e0; color:#333;" onclick="editBill('${b.id}')">Edit</button>
+                            <button class="mini-btn" style="background:var(--danger); color:white;" onclick="state.bills.splice(${idx}, 1);save()">Del</button>
+                        </div>
+                    </div>
                 </div>`).join('')}`;
     }
 
@@ -254,6 +268,9 @@ function render() {
                     <label><small style="color:#7f8c8d; font-weight:bold;">Your Name</small></label>
                     <input class="field" value="${state.userName}" onchange="state.userName=this.value;save()">
                     
+                    <label><small style="color:#7f8c8d; font-weight:bold;">App Theme Color</small></label>
+                    <input type="color" class="field" value="${state.settings.themeColor}" style="height:50px; padding:5px;" onchange="state.settings.themeColor=this.value;save()">
+                    
                     <label><small style="color:#7f8c8d; font-weight:bold;">Start Balance</small></label>
                     <input type="number" class="field" value="${state.settings.initialBalance}" onchange="state.settings.initialBalance=parseFloat(this.value);save()">
                     
@@ -265,16 +282,29 @@ function render() {
                 </div>
             </div>
             <div class="panel">
-                <h3>Data</h3>
-                <button class="btn" style="background:var(--danger);" onclick="if(confirm('Are you completely sure you want to clear all data? This cannot be undone.')){state=defaultData;save();}">Wipe Data & Reset</button>
+                <h3>Data Tools</h3>
+                <div class="stack">
+                    <button class="btn" style="background:#2ecc71;" onclick="exportCSV()">Export to CSV</button>
+                    <button class="btn" style="background:var(--danger);" onclick="if(confirm('Are you completely sure you want to clear all data?')){state=defaultData;save();}">Wipe Data & Reset</button>
+                </div>
             </div>`;
     }
 }
 
 // --- GLOBAL ACTIONS ---
 window.addBill = () => {
-    const n = document.getElementById('bn').value, a = parseFloat(document.getElementById('ba').value), d = document.getElementById('bd').value, f = document.getElementById('bf').value;
-    if(n && a && d) { state.bills.push({ id: makeId(), name: n, amount: a, date: d, freq: f }); save(); }
+    const n = document.getElementById('bn').value, a = parseFloat(document.getElementById('ba').value), d = document.getElementById('bd').value;
+    const f = document.getElementById('bf').value, c = document.getElementById('bc') ? document.getElementById('bc').value : null;
+    if(n && a && d) { state.bills.push({ id: makeId(), name: n, amount: a, date: d, freq: f, customDays: c }); save(); }
+};
+
+window.editBill = (id) => {
+    const b = state.bills.find(x => x.id === id);
+    if (!b) return;
+    const n = prompt("Edit Bill Name:", b.name);
+    const a = prompt("Edit Amount ($):", b.amount);
+    const d = prompt("Edit Start Date (YYYY-MM-DD):", b.date);
+    if (n && a && d) { b.name = n; b.amount = parseFloat(a); b.date = d; save(); }
 };
 
 window.addItem = (type) => {
@@ -283,6 +313,17 @@ window.addItem = (type) => {
 };
 
 window.deleteItem = (type, idx) => { state[type].splice(idx, 1); save(); };
+
+window.exportCSV = () => {
+    let csv = "Type,Date,Description,Amount\\n";
+    state.spending.forEach(s => csv += \`Expense,\${s.date},"\${s.name}",\${s.amount}\\n\`);
+    state.deposits.forEach(d => csv += \`Income,\${d.date},"\${d.name}",\${d.amount}\\n\`);
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'BudgetFlow_Data.csv';
+    a.click();
+};
 
 // Boot App
 render();
