@@ -40,11 +40,15 @@ const defaultData = {
 };
 
 let state = JSON.parse(localStorage.getItem(STORAGE_KEY)) || clone(defaultData);
+// Migration check for the new goals array
+if (!state.goals) state.goals = [];
+
 let activeTab = 'dashboard', scheduleSearch = '', spendingSearch = '', depositSearch = '';
 let scheduleFilterMode = 'all', spendingFilterMode = 'period', depositFilterMode = 'period';
 let currentPeriodOffset = 0, editingBillId = null;
 
 function saveState() { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); renderApp(); }
+
 function setTab(id) { 
     if(['budget', 'spending', 'deposits', 'schedule'].includes(id)) currentPeriodOffset = getTodayOffset(); 
     activeTab = id; 
@@ -101,6 +105,7 @@ function getScheduleRows() {
 function calculatePeriodStats(offset) {
     const { start, end } = getPeriodDates(offset);
     const schedule = getScheduleRows();
+    
     const priorIncome = state.deposits.filter(d => parseISODate(d.date) < start).reduce((s, d) => s + d.amount, 0);
     const priorSpending = state.spending.filter(sp => parseISODate(sp.date) < start).reduce((s, sp) => s + sp.amount, 0);
     const priorBills = schedule.filter(r => parseISODate(r.date) < start).reduce((s, r) => s + r.amount, 0);
@@ -113,7 +118,7 @@ function calculatePeriodStats(offset) {
     return { start, end, carryOver, pIncome, pSpending, pBills, totalLeft: (carryOver + pIncome - pBills - pSpending) };
 }
 
-// --- RENDER METHODS ---
+// --- RENDERS ---
 function renderDashboard() {
   const todayOffset = getTodayOffset();
   const stats = calculatePeriodStats(todayOffset);
@@ -136,7 +141,7 @@ function renderBills() {
     <div class="panel"><div class="panel-head"><h2>${editingBillId ? 'Edit Bill' : 'Manage Bills'}</h2></div>
       <div class="stack">
         <input type="text" id="billName" class="field" placeholder="Name">
-        <input type="number" id="billAmount" class="field" placeholder="Base Amount">
+        <input type="number" id="billAmount" class="field" placeholder="Amount">
         <input type="date" id="billDate" class="field">
         <select id="billFreq" class="field" onchange="document.getElementById('customDays').classList.toggle('hidden', this.value !== 'Custom')">
           <option value="Monthly">Monthly</option><option value="Weekly">Weekly</option><option value="Bi-Weekly">Bi-Weekly</option><option value="Custom">Custom</option>
@@ -146,14 +151,14 @@ function renderBills() {
         <div style="display:flex; gap:10px;"><button class="btn" style="flex:2" onclick="addBill()">${editingBillId ? 'Update' : 'Save'}</button>${editingBillId ? `<button class="btn" style="flex:1; background:#7f8c8d" onclick="cancelEdit()">Cancel</button>` : ''}</div>
       </div>
     </div>
-    <div class="table-wrap"><table><tbody>${state.bills.map(b => `<tr><td><strong>${b.name}</strong><br><small>${b.frequency}${b.endDate?' (Ends '+b.endDate+')':''}</small></td><td style="text-align:right;">${formatMoney(b.amount)}<br><button class="mini-btn" onclick="editBill('${b.id}')">Edit</button><button class="mini-btn danger-btn" onclick="deleteItem('bills','${b.id}')">Del</button></td></tr>`).join('')}</tbody></table></div>`;
+    <div class="table-wrap"><table><tbody>${state.bills.map(b => `<tr><td><strong>${b.name}</strong><br><small>${b.frequency}</small></td><td style="text-align:right;">${formatMoney(b.amount)}<br><button class="mini-btn" onclick="editBill('${b.id}')">Edit</button><button class="mini-btn danger-btn" onclick="deleteItem('bills','${b.id}')">Del</button></td></tr>`).join('')}</tbody></table></div>`;
 }
 
 function renderGoals() {
     document.getElementById('tab-goals').innerHTML = `
         <div class="panel"><div class="panel-head"><h2>New Financial Goal</h2></div>
             <div class="stack">
-                <input type="text" id="goalName" class="field" placeholder="e.g., Summer Vacation">
+                <input type="text" id="goalName" class="field" placeholder="Goal Name">
                 <div style="display:flex; gap:10px;"><input type="number" id="goalTarget" class="field" placeholder="Target $" style="flex:1"><input type="number" id="goalMilestones" class="field" placeholder="# Milestones" style="flex:1"></div>
                 <button class="btn" onclick="addGoal()">Create Goal</button>
             </div>
@@ -173,4 +178,98 @@ function renderGoals() {
         }).join('')}</div>`;
 }
 
-// Full logic continued... (Refer to previous code for rest of UI renders and event handlers)
+function renderSchedule() {
+  let rows = getScheduleRows();
+  if (scheduleFilterMode === '30days') rows = rows.filter(r => { const d = parseISODate(r.date); return d >= new Date().setHours(0,0,0,0) && d <= addDays(new Date(), 30); });
+  else if (scheduleFilterMode === 'period') { const { start, end } = getPeriodDates(currentPeriodOffset); rows = rows.filter(r => { const d = parseISODate(r.date); return d >= start && d <= end; }); }
+  rows = rows.filter(r => r.description.toLowerCase().includes(scheduleSearch.toLowerCase()));
+  const { start, end } = getPeriodDates(currentPeriodOffset);
+  document.getElementById('tab-schedule').innerHTML = `
+    <div class="panel"><input type="text" class="field" placeholder="Search..." value="${scheduleSearch}" oninput="scheduleSearch=this.value;renderSchedule()">
+        <div style="display:flex; gap:5px; margin-top:10px;"><button class="mini-btn ${scheduleFilterMode==='all'?'active':''}" onclick="scheduleFilterMode='all';renderSchedule()">All</button><button class="mini-btn ${scheduleFilterMode==='30days'?'active':''}" onclick="scheduleFilterMode='30days';renderSchedule()">30d</button><button class="mini-btn ${scheduleFilterMode==='period'?'active':''}" onclick="scheduleFilterMode='period';renderSchedule()">Period</button></div>
+        ${scheduleFilterMode === 'period' ? `<div style="display:flex; justify-content:space-between; align-items:center; margin-top:15px;"><button class="mini-btn" onclick="currentPeriodOffset--;renderSchedule()">◀</button><strong>${formatDateRange(start, end)}</strong><button class="mini-btn" onclick="currentPeriodOffset++;renderSchedule()">▶</button></div>` : ''}
+    </div>
+    <div class="table-wrap"><table><tbody>${rows.map(r => `<tr class="${r.status.toLowerCase()}"><td><small>${r.date}</small><br><strong>${r.description}</strong></td><td style="text-align:right;"><input type="number" class="field" style="width:70px; font-size:0.8rem; text-align:right;" value="${r.amount}" onchange="setActualAmount('${r.id}', this.value)"><br><button class="mini-btn" onclick="togglePaid('${r.id}')">${r.status === 'Paid' ? 'Undo' : 'Pay'}</button></td></tr>`).join('')}</tbody></table></div>`;
+}
+
+function renderBudget() {
+  const stats = calculatePeriodStats(currentPeriodOffset);
+  const isToday = currentPeriodOffset === getTodayOffset();
+  document.getElementById('tab-budget').innerHTML = `
+    <div class="panel">
+        <div class="panel-head"><h2>Analysis</h2></div>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+            <button class="tab-btn" onclick="currentPeriodOffset--;renderBudget()">◀</button>
+            <div style="text-align: center;"><strong style="display:block;">${formatDateRange(stats.start, stats.end)}</strong></div>
+            <button class="tab-btn" onclick="currentPeriodOffset++;renderBudget()">▶</button>
+        </div>
+        <div class="stack" style="gap:10px; margin-top:20px;">
+            <div style="display:flex; justify-content:space-between;"><span>Carryover</span><strong>${formatMoney(stats.carryOver)}</strong></div>
+            <div style="display:flex; justify-content:space-between;"><span>Income</span><strong>${formatMoney(stats.pIncome)}</strong></div>
+            <div style="display:flex; justify-content:space-between;"><span>Bills</span><strong style="color:#e74c3c">-${formatMoney(stats.pBills)}</strong></div>
+            <div style="display:flex; justify-content:space-between;"><span>Spent</span><strong style="color:#e74c3c">-${formatMoney(stats.pSpending)}</strong></div>
+            <hr>
+            <div style="display:flex; justify-content:space-between; font-size:1.2rem; font-weight:800;"><span>Remaining</span><span style="color: #3498db">${formatMoney(stats.totalLeft)}</span></div>
+        </div>
+    </div>`;
+}
+
+function renderSpending() {
+  const { start, end } = getPeriodDates(currentPeriodOffset);
+  let rows = state.spending;
+  if (spendingFilterMode === 'period') rows = rows.filter(s => { const dt = parseISODate(s.date); return dt >= start && dt <= end; });
+  document.getElementById('tab-spending').innerHTML = `
+    <div class="panel"><div class="stack"><input type="text" id="spDesc" class="field" placeholder="Description"><input type="number" id="spAmt" class="field" placeholder="$"><input type="date" id="spDate" class="field" value="${toISODate(new Date())}"><button class="btn" onclick="addSpending()">Add</button></div></div>
+    <div class="table-wrap"><table><tbody>${rows.sort((a,b)=>b.date.localeCompare(a.date)).map(s => `<tr><td><small>${s.date}</small><br><strong>${s.description}</strong></td><td style="text-align:right;">${formatMoney(s.amount)}<br><button class="mini-btn danger-btn" onclick="deleteItem('spending','${s.id}')">Del</button></td></tr>`).join('')}</tbody></table></div>`;
+}
+
+function renderDeposits() {
+  const { start, end } = getPeriodDates(currentPeriodOffset);
+  let rows = state.deposits;
+  if (depositFilterMode === 'period') rows = rows.filter(d => { const dt = parseISODate(d.date); return dt >= start && dt <= end; });
+  document.getElementById('tab-deposits').innerHTML = `
+    <div class="panel"><div class="stack"><input type="text" id="dpDesc" class="field" placeholder="Source"><input type="number" id="dpAmt" class="field" placeholder="$"><input type="date" id="dpDate" class="field" value="${toISODate(new Date())}"><button class="btn" onclick="addDeposit()">Add</button></div></div>
+    <div class="table-wrap"><table><tbody>${rows.sort((a,b)=>b.date.localeCompare(a.date)).map(d => `<tr><td><small>${d.date}</small><br><strong>${d.description}</strong></td><td style="text-align:right;">${formatMoney(d.amount)}<br><button class="mini-btn danger-btn" onclick="deleteItem('deposits','${d.id}')">Del</button></td></tr>`).join('')}</tbody></table></div>`;
+}
+
+function renderSettings() {
+  document.getElementById('tab-settings').innerHTML = `<div class="panel"><div class="stack"><label>Name</label><input type="text" class="field" value="${state.userName}" onchange="state.userName=this.value;saveState()"><label>Start Bal</label><input type="number" class="field" value="${state.settings.initialBalance}" onchange="state.settings.initialBalance=parseFloat(this.value)||0;saveState()"><label>Start Date</label><input type="date" class="field" value="${state.settings.anchorDate}" onchange="state.settings.anchorDate=this.value;saveState()"></div></div><div class="panel"><div class="stack"><button class="btn" onclick="exportData()">Backup (JSON)</button><button class="btn danger-btn" onclick="if(confirm('Reset?')) { state=clone(defaultData); saveState(); }">Reset</button></div></div>`;
+}
+
+// --- SHARED ACTIONS ---
+function setActualAmount(key, val) { if (!state.scheduleMeta[key]) state.scheduleMeta[key] = { paid: false }; state.scheduleMeta[key].actualAmount = parseFloat(val) || 0; saveState(); }
+function togglePaid(key) { if (!state.scheduleMeta[key]) state.scheduleMeta[key] = { paid: false }; state.scheduleMeta[key].paid = !state.scheduleMeta[key].paid; saveState(); }
+function addBill() {
+  const n = document.getElementById('billName').value, a = parseFloat(document.getElementById('billAmount').value), d = document.getElementById('billDate').value, f = document.getElementById('billFreq').value, c = document.getElementById('customDays').value;
+  if (!n || isNaN(a) || !d) return;
+  if (editingBillId) { const idx = state.bills.findIndex(b => b.id === editingBillId); state.bills[idx] = { ...state.bills[idx], name: n, amount: a, date: d, frequency: f, customDays: c }; editingBillId = null; }
+  else state.bills.push({ id: makeId('bill'), name: n, amount: a, date: d, frequency: f, customDays: c });
+  saveState();
+}
+function editBill(id) { const b = state.bills.find(b => b.id === id); editingBillId = id; renderBills(); document.getElementById('billName').value = b.name; document.getElementById('billAmount').value = b.amount; document.getElementById('billDate').value = b.date; document.getElementById('billFreq').value = b.frequency; }
+function cancelEdit() { editingBillId = null; renderBills(); }
+function addSpending() { const d = document.getElementById('spDesc').value, a = parseFloat(document.getElementById('spAmt').value), dt = document.getElementById('spDate').value; if (!d || isNaN(a) || !dt) return; state.spending.push({ id: makeId('sp'), description: d, amount: a, date: dt }); saveState(); }
+function addDeposit() { const d = document.getElementById('dpDesc').value, a = parseFloat(document.getElementById('dpAmt').value), dt = document.getElementById('dpDate').value; if (!d || isNaN(a) || !dt) return; state.deposits.push({ id: makeId('dp'), description: d, amount: a, date: dt }); saveState(); }
+function addGoal() { const n = document.getElementById('goalName').value, t = parseFloat(document.getElementById('goalTarget').value), m = parseInt(document.getElementById('goalMilestones').value) || 0; if(!n || !t) return; state.goals.push({ id: makeId('goal'), name: n, target: t, current: 0, milestones: m }); saveState(); }
+function adjustGoal(id, type) { const amt = parseFloat(document.getElementById(`pay-${id}`).value); if(!amt) return; const g = state.goals.find(x => x.id === id); if(type === 'add') { g.current += amt; state.spending.push({ id: makeId('sp'), description: `Goal: ${g.name}`, amount: amt, date: toISODate(new Date()) }); } else { g.current -= amt; state.deposits.push({ id: makeId('dp'), description: `Back: ${g.name}`, amount: amt, date: toISODate(new Date()) }); } saveState(); }
+function deleteItem(coll, id) { state[coll] = state[coll].filter(i => i.id !== id); saveState(); }
+function exportData() { const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(state)); const dl = document.createElement('a'); dl.setAttribute("href", dataStr); dl.setAttribute("download", `budget_backup.json`); dl.click(); }
+
+function renderApp() {
+  const nav = document.getElementById('tabs');
+  nav.innerHTML = TABS.map(t => `<button class="tab-btn ${activeTab === t.id ? 'active' : ''}" onclick="setTab('${t.id}')">${t.label}</button>`).join('');
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.add('hidden'));
+  const activeP = document.getElementById(`tab-${activeTab}`);
+  if (activeP) {
+      activeP.classList.remove('hidden');
+      if (activeTab === 'dashboard') renderDashboard();
+      else if (activeTab === 'bills') renderBills();
+      else if (activeTab === 'schedule') renderSchedule();
+      else if (activeTab === 'budget') renderBudget();
+      else if (activeTab === 'goals') renderGoals();
+      else if (activeTab === 'spending') renderSpending();
+      else if (activeTab === 'deposits') renderDeposits();
+      else if (activeTab === 'settings') renderSettings();
+  }
+}
+window.onload = renderApp;
