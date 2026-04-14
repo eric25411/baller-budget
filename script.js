@@ -1,4 +1,4 @@
-const STORAGE_KEY = 'budgetflow-v9';
+const STORAGE_KEY = 'budgetflow-v10';
 
 const TABS = [
   { id: 'dashboard', label: 'Dashboard' },
@@ -10,28 +10,51 @@ const TABS = [
   { id: 'settings', label: 'Settings' }
 ];
 
-// --- STYLES ---
+// --- STYLES (Light & Carolina Dark Mode) ---
 const style = document.createElement('style');
 style.textContent = `
-    :root { --primary: #5fa8e6; --secondary: #2ecc71; --danger: #e74c3c; --bg: #f4f6f9; --card-bg: #ffffff; }
-    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg); margin: 0; padding-bottom: 80px; color: #333; }
+    :root { 
+        --primary: #7BAFD4; /* Carolina Blue */
+        --secondary: #2ecc71; 
+        --danger: #e74c3c; 
+        --bg: #f4f6f9; 
+        --card-bg: #ffffff; 
+        --text: #333;
+        --border: #eee;
+    }
+
+    body.dark {
+        --bg: #12171e; /* Deep Navy Charcoal */
+        --card-bg: #1e252e; 
+        --text: #e0e0e0;
+        --border: #2d3743;
+    }
+
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg); margin: 0; padding-bottom: 80px; color: var(--text); transition: background 0.3s; }
     #header { background: var(--primary); color: white; padding: 20px 15px 10px; text-align: center; }
     #header h1 { margin: 0; font-size: 1.5rem; font-weight: 800; }
     #greeting { font-size: 0.9rem; margin-top: 5px; opacity: 0.9; }
-    #tabs-container { overflow-x: auto; white-space: nowrap; padding: 12px; background: #fff; border-bottom: 1px solid #eee; position: sticky; top: 0; z-index: 100; display: flex; gap: 8px; }
+    
+    #tabs-container { overflow-x: auto; white-space: nowrap; padding: 12px; background: var(--card-bg); border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 100; display: flex; gap: 8px; }
     #tabs-container::-webkit-scrollbar { display: none; }
-    .tab-btn { padding: 8px 16px; border-radius: 20px; border: none; background: #f0f2f5; cursor: pointer; font-weight: 600; font-size: 0.85rem; }
+    
+    .tab-btn { padding: 8px 16px; border-radius: 20px; border: none; background: var(--border); color: var(--text); cursor: pointer; font-weight: 600; font-size: 0.85rem; }
     .tab-btn.active { background: var(--primary); color: white; }
-    .nav-bar { display: flex; justify-content: space-between; align-items: center; padding: 10px 15px; background: #fff; margin-bottom: 5px; border-bottom: 1px solid #f0f0f0; }
-    .panel { background: var(--card-bg); border-radius: 16px; padding: 15px; margin: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.03); }
+    
+    .nav-bar { display: flex; justify-content: space-between; align-items: center; padding: 10px 15px; background: var(--card-bg); margin-bottom: 5px; border-bottom: 1px solid var(--border); }
+    .panel { background: var(--card-bg); border-radius: 16px; padding: 15px; margin: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); border: 1px solid var(--border); }
+    
     .btn { background: var(--primary); color: white; border: none; padding: 12px; border-radius: 10px; font-weight: 700; width: 100%; cursor: pointer; margin-top: 5px; }
     .btn-outline { background: transparent; border: 1px solid var(--primary); color: var(--primary); }
-    .field { width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #ddd; box-sizing: border-box; margin-bottom: 8px; font-size: 1rem; }
+    
+    .field { width: 100%; padding: 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg); color: var(--text); box-sizing: border-box; margin-bottom: 8px; font-size: 1rem; }
     .flex-between { display: flex; justify-content: space-between; align-items: center; }
     .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-    .mini-btn { padding: 6px 12px; border-radius: 8px; border: none; font-size: 0.8rem; cursor: pointer; background: #eee; font-weight: 600; }
-    .progress-bg { background: #eee; border-radius: 10px; height: 10px; width: 100%; margin: 10px 0; overflow: hidden; }
+    
+    .mini-btn { padding: 6px 12px; border-radius: 8px; border: none; font-size: 0.8rem; cursor: pointer; background: var(--border); color: var(--text); font-weight: 600; }
+    .progress-bg { background: var(--border); border-radius: 10px; height: 10px; width: 100%; margin: 10px 0; overflow: hidden; }
     .progress-fill { background: var(--secondary); height: 100%; transition: width 0.3s; }
+    
     .paid { color: var(--secondary); font-weight: bold; }
     .clickable-amount { cursor: pointer; transition: opacity 0.2s; }
     .clickable-amount:hover { opacity: 0.7; }
@@ -50,23 +73,27 @@ document.body.innerHTML = `
 
 const defaultData = {
     userName: 'Baller',
-    settings: { initialBalance: 0, rollover: 0, anchorDate: '2026-04-11', periodDays: 14, themeColor: '#5fa8e6' },
+    darkMode: false,
+    settings: { initialBalance: 0, rollover: 0, anchorDate: '2026-04-11', periodDays: 14, themeColor: '#7BAFD4' },
     bills: [], spending: [], deposits: [], scheduleMeta: {}, goals: []
 };
 
 let state;
 try {
-    state = JSON.parse(localStorage.getItem(STORAGE_KEY)) || JSON.parse(localStorage.getItem('budgetflow-v8')) || JSON.parse(localStorage.getItem('budgetflow-v7')) || defaultData;
+    state = JSON.parse(localStorage.getItem(STORAGE_KEY)) || 
+            JSON.parse(localStorage.getItem('budgetflow-v9')) || 
+            JSON.parse(localStorage.getItem('budgetflow-v8')) || 
+            defaultData;
 } catch (e) { state = defaultData; }
 
+// Safety checks for new properties
 state.userName = state.userName || 'Baller';
-state.bills = state.bills || [];
-state.spending = state.spending || [];
-state.deposits = state.deposits || [];
+state.darkMode = state.darkMode || false;
 state.goals = state.goals || [];
-state.scheduleMeta = state.scheduleMeta || {};
 state.settings = { ...defaultData.settings, ...state.settings };
-state.settings.rollover = state.settings.rollover || 0;
+
+// Apply theme on start
+if (state.darkMode) document.body.classList.add('dark');
 
 let activeTab = 'dashboard';
 let periodOffset = 0;
@@ -133,7 +160,7 @@ function render() {
             
             content.innerHTML = periodNav + `
                 <div class="panel" style="text-align:center">
-                    <small style="color:#888; font-weight:bold">PROJECTED REMAINING</small>
+                    <small style="opacity:0.6; font-weight:bold">PROJECTED REMAINING</small>
                     <div style="font-size:2.2rem; font-weight:800; color:var(--primary)">${format(currentBalance + depositTotal - billsTotal - spentTotal)}</div>
                 </div>
                 <div class="stat-grid" style="margin: 0 12px;">
@@ -145,7 +172,7 @@ function render() {
             content.innerHTML = `
                 <div class="panel">
                     <h3>New Saving Goal</h3>
-                    <input id="gn" placeholder="Goal Name (e.g. Vacation)" class="field">
+                    <input id="gn" placeholder="Goal Name" class="field">
                     <input id="gt" type="number" placeholder="Target Amount" class="field">
                     <button class="btn" onclick="addGoal()">Create Goal</button>
                 </div>
@@ -202,15 +229,9 @@ function render() {
                     <button class="btn" onclick="addTx('${activeTab}')">Save Entry</button>
                 </div>`) + 
                 list.map((x, i) => {
-                    // Logic to display the amount based on tab
-                    let amountDisplay = '';
-                    if (isSched) {
-                        amountDisplay = `<div onclick="updateActual('${x.rowKey}', ${x.amount})" class="clickable-amount" style="font-weight:bold; color:#333;">
-                            ${x.actual ? `<span class="paid">${format(x.actual)}</span>` : format(x.amount)}
-                        </div>`;
-                    } else {
-                        amountDisplay = `<div style="font-weight:bold; color:${isSpend ? 'var(--danger)' : 'var(--secondary)'}">${format(x.amount)}</div>`;
-                    }
+                    let amountDisplay = isSched ? 
+                        `<div onclick="updateActual('${x.rowKey}', ${x.amount})" class="clickable-amount" style="font-weight:bold; color:var(--text);">${x.actual ? `<span class="paid">${format(x.actual)}</span>` : format(x.amount)}</div>` :
+                        `<div style="font-weight:bold; color:${isSpend ? 'var(--danger)' : 'var(--secondary)'}">${format(x.amount)}</div>`;
 
                     return `
                     <div class="panel flex-between" style="${isSched && x.paid ? 'opacity:0.6' : ''}">
@@ -224,6 +245,12 @@ function render() {
         }
         else if (activeTab === 'settings') {
             content.innerHTML = `
+                <div class="panel flex-between">
+                    <h3>Appearance</h3>
+                    <button class="mini-btn ${state.darkMode ? 'active' : ''}" onclick="toggleDarkMode()">
+                        ${state.darkMode ? '🌙 Dark' : '☀️ Light'}
+                    </button>
+                </div>
                 <div class="panel">
                     <h3>User Profile</h3>
                     <label><small>Your Name</small></label>
@@ -252,17 +279,21 @@ function render() {
 }
 
 // --- LOGIC FUNCTIONS ---
+window.toggleDarkMode = () => {
+    state.darkMode = !state.darkMode;
+    document.body.classList.toggle('dark', state.darkMode);
+    save();
+};
 window.addGoal = () => {
     const n = document.getElementById('gn').value, t = parseFloat(document.getElementById('gt').value);
     if(n && t) { state.goals.push({ id: Math.random().toString(36).substr(2,9), name: n, target: t, current: 0 }); save(); }
 };
 window.fundGoal = (id) => {
-    const amt = parseFloat(prompt("How much would you like to contribute?"));
+    const amt = parseFloat(prompt("Contribution amount?"));
     if (!amt || isNaN(amt)) return;
     const g = state.goals.find(x => x.id === id);
     g.current += amt;
-    const today = new Date().toISOString().split('T')[0];
-    state.spending.push({ name: `Goal: ${g.name}`, amount: amt, date: today });
+    state.spending.push({ name: `Goal: ${g.name}`, amount: amt, date: new Date().toISOString().split('T')[0] });
     save();
 };
 window.addBill = () => {
@@ -280,7 +311,7 @@ window.togglePaid = (key) => {
     save();
 };
 window.updateActual = (key, current) => {
-    const val = prompt("Enter actual amount paid:", current);
+    const val = prompt("Actual amount paid:", current);
     if (val) {
         state.scheduleMeta[key] = state.scheduleMeta[key] || {};
         state.scheduleMeta[key].actual = parseFloat(val);
@@ -299,7 +330,6 @@ window.exportExcel = () => {
     state.bills.forEach(b => csv += `Bill,${b.date},"${b.name}",${b.amount}\n`);
     state.spending.forEach(s => csv += `Spend,${s.date},"${s.name}",${s.amount}\n`);
     state.deposits.forEach(d => csv += `Deposit,${d.date},"${d.name}",${d.amount}\n`);
-    state.goals.forEach(g => csv += `Goal Target,, "${g.name}",${g.target}\n`);
     const blob = new Blob([csv], { type: 'text/csv' });
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'budget_export.csv'; a.click();
 };
@@ -308,8 +338,8 @@ window.exportJSON = () => {
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'budget_backup.json'; a.click();
 };
 window.importJSON = () => {
-    const json = prompt("Paste your JSON backup data:");
-    if (json) { try { state = JSON.parse(json); save(); } catch(e) { alert("Invalid JSON format"); } }
+    const json = prompt("Paste JSON backup:");
+    if (json) { try { state = JSON.parse(json); save(); } catch(e) { alert("Invalid data"); } }
 };
 
 render();
