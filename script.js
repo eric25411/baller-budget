@@ -1,4 +1,4 @@
-const STORAGE_KEY = 'budgetflow-v1';
+const STORAGE_KEY = 'budgetflow-v2';
 
 const TABS = [
   { id: 'dashboard', label: 'Dashboard' },
@@ -22,18 +22,18 @@ style.textContent = `
         --text-main: #2d3436;
         --text-sub: #636e72;
     }
-    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--text-main); margin: 0; padding: 0; overflow-x: hidden; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--text-main); margin: 0; padding: 0; }
     
-    /* Fixed Navigation Bar */
     #tabs-container {
         overflow-x: auto;
         white-space: nowrap;
         padding: 15px 10px;
         background: #fff;
         border-bottom: 1px solid #eee;
-        -webkit-overflow-scrolling: touch;
+        position: sticky;
+        top: 0;
+        z-index: 100;
     }
-    #tabs-container::-webkit-scrollbar { display: none; }
     
     .tab-btn { 
         display: inline-block;
@@ -48,239 +48,160 @@ style.textContent = `
     }
     .tab-btn.active { background: var(--primary); color: white; }
 
-    .panel { background: var(--card-bg); border-radius: 16px; padding: 20px; margin: 15px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); border: 1px solid rgba(0,0,0,0.02); }
-    .hero-value { font-size: 3rem; font-weight: 800; color: var(--primary); letter-spacing: -1px; margin: 8px 0; }
-    .daily-badge { display: inline-block; background: rgba(46, 204, 113, 0.1); color: var(--secondary); padding: 6px 16px; border-radius: 50px; font-weight: 700; font-size: 0.9rem; }
-    .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 0 15px; }
-    .mini-card { background: #fff; padding: 15px; border-radius: 12px; text-align: center; border: 1px solid #f0f0f0; box-shadow: 0 2px 6px rgba(0,0,0,0.03); }
-    .mini-card .label { font-size: 0.7rem; text-transform: uppercase; color: var(--text-sub); font-weight: 600; margin-bottom: 4px; }
-    .mini-card .value { font-size: 1rem; font-weight: 700; }
-    
-    .stack { display: flex; flex-direction: column; gap: 10px; }
-    .field { width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #ddd; box-sizing: border-box; font-size: 1rem; margin-bottom: 10px; }
-    .btn { background: var(--primary); color: white; border: none; padding: 12px; border-radius: 8px; font-weight: 700; cursor: pointer; width: 100%; }
-    .mini-btn { padding: 6px 12px; border-radius: 6px; border: none; font-size: 0.75rem; cursor: pointer; font-weight: 600; }
-    .danger-btn { background: var(--danger); color: white; }
+    .panel { background: var(--card-bg); border-radius: 16px; padding: 20px; margin: 15px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+    .hero-value { font-size: 2.5rem; font-weight: 800; color: var(--primary); margin: 10px 0; }
+    .stack { display: flex; flex-direction: column; gap: 12px; }
+    .field { width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #ddd; box-sizing: border-box; font-size: 1rem; }
+    .btn { background: var(--primary); color: white; border: none; padding: 14px; border-radius: 8px; font-weight: 700; cursor: pointer; }
+    .mini-btn { padding: 6px 12px; border-radius: 6px; border: none; font-size: 0.75rem; cursor: pointer; }
     .hidden { display: none; }
     .flex-between { display: flex; justify-content: space-between; align-items: center; }
-    .arrow-btn { background: #eee; border: none; width: 32px; height: 32px; border-radius: 50%; cursor: pointer; font-weight: bold; }
+    .arrow-btn { background: #eee; border: none; width: 36px; height: 36px; border-radius: 50%; cursor: pointer; font-weight: bold; }
 `;
 document.head.appendChild(style);
 
-// --- UTILS ---
-function clone(obj) { return JSON.parse(JSON.stringify(obj)); }
-function makeId(prefix) { return prefix + '-' + Math.random().toString(36).slice(2, 8); }
-function pad(n) { return String(n).padStart(2, '0'); }
-function parseISODate(value) { if (!value) return new Date(); const p = value.split('-').map(Number); return new Date(p[0], p[1] - 1, p[2]); }
-function toISODate(date) { return date.getFullYear() + '-' + pad(date.getMonth() + 1) + '-' + pad(date.getDate()); }
-function addDays(date, days) { const d = new Date(date); d.setDate(d.getDate() + days); return d; }
-function formatMoney(v) { return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(v || 0); }
+// --- APP HTML STRUCTURE ---
+document.body.innerHTML = `
+    <div id="tabs-container"></div>
+    <div id="main-content">
+        <div id="tab-dashboard" class="tab-panel"></div>
+        <div id="tab-bills" class="tab-panel hidden"></div>
+        <div id="tab-schedule" class="tab-panel hidden"></div>
+        <div id="tab-budget" class="tab-panel hidden"></div>
+        <div id="tab-spending" class="tab-panel hidden"></div>
+        <div id="tab-deposits" class="tab-panel hidden"></div>
+        <div id="tab-settings" class="tab-panel hidden"></div>
+    </div>
+`;
 
-// --- STATE ---
+// --- UTILS ---
+function makeId(p) { return p + '-' + Math.random().toString(36).slice(2, 9); }
+function toISO(d) { return d.toISOString().split('T')[0]; }
+function parseISO(s) { const b = s.split('-'); return new Date(b[0], b[1]-1, b[2]); }
+function addDays(d, n) { const r = new Date(d); r.setDate(r.getDate() + n); return r; }
+function format(v) { return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(v || 0); }
+
+// --- DATA ---
 const defaultData = {
-  settings: { initialBalance: 0, anchorDate: '2026-04-02', periodDays: 14 },
   userName: 'Baller',
-  bills: [], spending: [], deposits: [], scheduleMeta: {} 
+  settings: { initialBalance: 0, anchorDate: toISO(new Date()), periodDays: 14 },
+  bills: [], spending: [], deposits: [], scheduleMeta: {}
 };
 
-let state = JSON.parse(localStorage.getItem(STORAGE_KEY)) || clone(defaultData);
-let activeTab = 'dashboard', currentPeriodOffset = 0, scheduleView = 'period'; 
+let state = JSON.parse(localStorage.getItem(STORAGE_KEY)) || defaultData;
+let activeTab = 'dashboard', periodOffset = 0, scheduleMode = 'period';
 
-function saveState() { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); renderApp(); }
+function save() { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); render(); }
 
-// --- LOGIC ---
-function getScheduleRows() {
-  const rows = [];
-  const endLimit = addDays(new Date(), 365);
-  state.bills.forEach(bill => {
-    let current = parseISODate(bill.date);
-    while (current <= endLimit) {
-        const dateStr = toISODate(current);
-        const key = `${bill.id}_${dateStr}`;
-        const meta = state.scheduleMeta[key] || {};
-        rows.push({
-          id: key, billId: bill.id, description: bill.name, 
-          amount: (meta.actualAmount !== undefined) ? meta.actualAmount : parseFloat(bill.amount), 
-          date: dateStr, isPaid: !!meta.paid
-        });
-      if (bill.frequency === 'Weekly') current = addDays(current, 7);
-      else if (bill.frequency === 'Bi-Weekly') current = addDays(current, 14);
-      else if (bill.frequency === 'Monthly') { current.setMonth(current.getMonth() + 1); }
-      else if (bill.frequency === 'Custom') current = addDays(current, parseInt(bill.customDays || 1));
-      else break;
-    }
-  });
-  return rows.sort((a, b) => a.date.localeCompare(b.date));
+// --- CALCULATIONS ---
+function getPeriod() {
+    const start = addDays(parseISO(state.settings.anchorDate), periodOffset * state.settings.periodDays);
+    const end = addDays(start, state.settings.periodDays - 1);
+    return { start, end };
 }
 
-function calculatePeriodStats(offset) {
-    const start = parseISODate(state.settings.anchorDate);
-    const days = parseInt(state.settings.periodDays || 14);
-    start.setDate(start.getDate() + (offset * days));
-    const end = new Date(start); end.setDate(end.getDate() + (days - 1));
-    const schedule = getScheduleRows();
-    const pIncome = state.deposits.filter(d => { let dt = parseISODate(d.date); return dt >= start && dt <= end; }).reduce((s, d) => s + d.amount, 0);
-    const pSpending = state.spending.filter(sp => { let dt = parseISODate(sp.date); return dt >= start && dt <= end; }).reduce((s, sp) => s + sp.amount, 0);
-    const pBills = schedule.filter(r => { let dt = parseISODate(r.date); return dt >= start && dt <= end; }).reduce((s, r) => s + r.amount, 0);
-    const priorIncome = state.deposits.filter(d => parseISODate(d.date) < start).reduce((s, d) => s + d.amount, 0);
-    const priorSpending = state.spending.filter(sp => parseISODate(sp.date) < start).reduce((s, sp) => s + sp.amount, 0);
-    const priorBills = schedule.filter(r => parseISODate(r.date) < start).reduce((s, r) => s + r.amount, 0);
-    const carryOver = (parseFloat(state.settings.initialBalance) || 0) + priorIncome - priorBills - priorSpending;
-    return { start, end, carryOver, pIncome, pSpending, pBills, totalLeft: (carryOver + pIncome - pBills - pSpending) };
+function getSchedule() {
+    const rows = [];
+    const limit = addDays(new Date(), 365);
+    state.bills.forEach(b => {
+        let curr = parseISO(b.date);
+        while (curr <= limit) {
+            const dStr = toISO(curr);
+            const key = `${b.id}_${dStr}`;
+            const meta = state.scheduleMeta[key] || {};
+            rows.push({
+                id: key, date: dStr, name: b.name, 
+                amount: meta.actual !== undefined ? meta.actual : b.amount,
+                paid: !!meta.paid
+            });
+            if (b.freq === 'Weekly') curr = addDays(curr, 7);
+            else if (b.freq === 'Bi-Weekly') curr = addDays(curr, 14);
+            else if (b.freq === 'Monthly') { curr.setMonth(curr.getMonth() + 1); }
+            else break;
+        }
+    });
+    return rows.sort((a, b) => a.date.localeCompare(b.date));
 }
 
-// --- UI RENDERS ---
-function renderDashboard() {
-  const stats = calculatePeriodStats(currentPeriodOffset);
-  const daysLeft = Math.max(1, Math.ceil((stats.end - new Date()) / (1000 * 60 * 60 * 24)));
-  document.getElementById('tab-dashboard').innerHTML = `
-    <div class="panel" style="text-align:center;">
-        <div style="font-size:0.8rem; color:var(--text-sub); font-weight:600; text-transform:uppercase;">Hello, ${state.userName}</div>
-        <div class="hero-value">${formatMoney(stats.totalLeft)}</div>
-        <div class="daily-badge">${formatMoney(stats.totalLeft / daysLeft)} <span style="font-weight:400; opacity:0.8;">/ day left</span></div>
-    </div>
-    <div class="stat-grid">
-        <div class="mini-card"><div class="label">Carryover</div><div class="value">${formatMoney(stats.carryOver)}</div></div>
-        <div class="mini-card"><div class="label">Income</div><div class="value" style="color:var(--secondary);">+${formatMoney(stats.pIncome)}</div></div>
-    </div>`;
-}
-
-function renderBudget() {
-    const stats = calculatePeriodStats(currentPeriodOffset);
-    document.getElementById('tab-budget').innerHTML = `
-        <div class="panel">
-            <div class="flex-between" style="margin-bottom:20px;">
-                <button class="arrow-btn" onclick="currentPeriodOffset--; renderApp();">❮</button>
-                <div style="text-align:center;"><h3 style="margin:0; font-size:1.1rem;">Budget Tracker</h3><small>${toISODate(stats.start)} - ${toISODate(stats.end)}</small></div>
-                <button class="arrow-btn" onclick="currentPeriodOffset++; renderApp();">❯</button>
-            </div>
-            <div class="stack">
-                <div class="flex-between"><span>Carryover</span><strong>${formatMoney(stats.carryOver)}</strong></div>
-                <div class="flex-between"><span>Income</span><strong style="color:var(--secondary);">+${formatMoney(stats.pIncome)}</strong></div>
-                <div class="flex-between"><span>Bills Due</span><strong style="color:var(--danger);">${formatMoney(stats.pBills)}</strong></div>
-                <div class="flex-between"><span>Other Spending</span><strong style="color:var(--danger);">${formatMoney(stats.pSpending)}</strong></div>
-                <div style="margin-top:10px; padding-top:15px; border-top:2px dashed #eee;" class="flex-between">
-                    <span style="font-weight:800;">End Balance</span><span style="font-weight:800; font-size:1.3rem; color:var(--primary);">${formatMoney(stats.totalLeft)}</span>
-                </div>
-            </div>
-        </div>`;
-}
-
-function renderSchedule() {
-    const stats = calculatePeriodStats(currentPeriodOffset);
-    let rows = getScheduleRows();
-    if(scheduleView === 'period') {
-        rows = rows.filter(r => { let d = parseISODate(r.date); return d >= stats.start && d <= stats.end; });
-    } else {
-        rows = rows.filter(r => r.date >= toISODate(new Date())).slice(0, 20);
-    }
+// --- RENDERING ---
+function render() {
+    // Render Tabs (without wiping container to prevent snap)
+    const tabsBox = document.getElementById('tabs-container');
+    tabsBox.innerHTML = TABS.map(t => `<button class="tab-btn ${activeTab === t.id ? 'active' : ''}" onclick="activeTab='${t.id}';render()">${t.label}</button>`).join('');
     
-    document.getElementById('tab-schedule').innerHTML = `
-        <div class="flex-between" style="margin: 15px; background:#eee; padding:5px; border-radius:10px;">
-            <button style="flex:1; border-radius:8px;" class="mini-btn ${scheduleView==='period'?'active btn':''}" onclick="scheduleView='period';renderApp()">Pay Period</button>
-            <button style="flex:1; border-radius:8px;" class="mini-btn ${scheduleView==='30day'?'active btn':''}" onclick="scheduleView='30day';renderApp()">Next 30 Days</button>
-        </div>
-        ${scheduleView === 'period' ? `
-        <div class="flex-between" style="margin: 0 20px 10px 20px;">
-            <button class="arrow-btn" onclick="currentPeriodOffset--; renderApp();">❮</button>
-            <small style="font-weight:700;">${toISODate(stats.start)} - ${toISODate(stats.end)}</small>
-            <button class="arrow-btn" onclick="currentPeriodOffset++; renderApp();">❯</button>
-        </div>` : ''}
-        <div class="stack" style="padding: 0 15px;">${rows.map(r => `
-            <div class="panel flex-between" style="margin:0 0 10px 0; padding:15px; opacity: ${r.isPaid ? '0.6' : '1'}">
-                <div><small>${r.date}</small><br><strong>${r.description}</strong></div>
-                <div style="text-align:right;">
-                    <input type="number" step="0.01" style="width:70px; text-align:right; border:1px solid #eee; font-weight:700; border-radius:4px;" value="${r.amount}" 
-                        onchange="updateActual('${r.id}', this.value)">
-                    <br><button class="mini-btn" style="margin-top:5px; background:${r.isPaid?'var(--secondary)':'#eee'}; color:${r.isPaid?'white':''}" 
-                        onclick="togglePaid('${r.id}')">${r.isPaid?'Paid':'Mark Paid'}</button>
-                </div>
-            </div>`).join('')}</div>`;
-}
+    // Switch Visibility
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.add('hidden'));
+    const currentPanel = document.getElementById(`tab-${activeTab}`);
+    currentPanel.classList.remove('hidden');
 
-function updateActual(id, val) { state.scheduleMeta[id] = { ...state.scheduleMeta[id], actualAmount: parseFloat(val) }; saveState(); }
-function togglePaid(id) { state.scheduleMeta[id] = { ...state.scheduleMeta[id], paid: !state.scheduleMeta[id]?.paid }; saveState(); }
+    if (activeTab === 'dashboard') {
+        const p = getPeriod();
+        const sched = getSchedule().filter(r => r.date >= toISO(p.start) && r.date <= toISO(p.end));
+        const totalBills = sched.reduce((s, r) => s + r.amount, 0);
+        currentPanel.innerHTML = `
+            <div class="panel" style="text-align:center;">
+                <small>Welcome back, ${state.userName}</small>
+                <div class="hero-value">${format(state.settings.initialBalance - totalBills)}</div>
+                <small>Projected Remaining This Period</small>
+            </div>`;
+    }
 
-function renderBills() {
-    document.getElementById('tab-bills').innerHTML = `
-    <div class="panel"><h3>Manage Bills</h3>
-        <div class="stack">
-            <input type="text" id="bN" class="field" placeholder="Bill Name">
-            <input type="number" id="bA" class="field" placeholder="Amount ($)">
-            <input type="date" id="bD" class="field">
-            <select id="bF" class="field" onchange="document.getElementById('cDWrap').style.display=(this.value==='Custom'?'block':'none')">
-                <option value="Monthly">Monthly</option><option value="Weekly">Weekly</option><option value="Bi-Weekly">Bi-Weekly</option><option value="Custom">Custom Days</option>
-            </select>
-            <div id="cDWrap" style="display:none;"><input type="number" id="bC" class="field" placeholder="Every X Days"></div>
-            <button class="btn" onclick="addB()">Save Bill</button>
-        </div>
-    </div>
-    <div class="stack" style="padding: 0 15px;">${state.bills.map(b => `
-        <div class="panel flex-between" style="margin: 0 0 10px 0; padding:12px 18px;">
-            <div><strong>${b.name}</strong><br><small>${b.frequency} - ${formatMoney(b.amount)}</small></div>
-            <div style="display:flex; gap:8px;">
-                <button class="mini-btn" onclick="editB('${b.id}')">Edit</button>
-                <button class="mini-btn danger-btn" onclick="state.bills=state.bills.filter(x=>x.id!=='${b.id}');saveState()">Del</button>
+    if (activeTab === 'schedule') {
+        const p = getPeriod();
+        let rows = getSchedule();
+        if (scheduleMode === 'period') rows = rows.filter(r => r.date >= toISO(p.start) && r.date <= toISO(p.end));
+        
+        currentPanel.innerHTML = `
+            <div class="flex-between" style="padding: 15px;">
+                <button class="mini-btn ${scheduleMode==='period'?'active btn':''}" onclick="scheduleMode='period';render()">Period</button>
+                <button class="mini-btn ${scheduleMode==='all'?'active btn':''}" onclick="scheduleMode='all';render()">Next 30 Days</button>
             </div>
-        </div>`).join('')}</div>`;
+            <div class="flex-between" style="padding: 0 15px 10px;">
+                <button class="arrow-btn" onclick="periodOffset--;render()">❮</button>
+                <strong>${toISO(p.start)} to ${toISO(p.end)}</strong>
+                <button class="arrow-btn" onclick="periodOffset++;render()">❯</button>
+            </div>
+            ${rows.map(r => `
+                <div class="panel flex-between" style="opacity:${r.paid?0.5:1}">
+                    <div><small>${r.date}</small><br><strong>${r.name}</strong></div>
+                    <div style="text-align:right">
+                        <input type="number" style="width:60px;text-align:right;" value="${r.amount}" onchange="state.scheduleMeta['${r.id}']={...state.scheduleMeta['${r.id}'], actual:parseFloat(this.value)};save()">
+                        <br><button class="mini-btn" style="margin-top:5px;background:${r.paid?'#2ecc71':'#eee'}" onclick="state.scheduleMeta['${r.id}']={...state.scheduleMeta['${r.id}'], paid:!${r.paid}};save()">${r.paid?'Paid':'Mark Paid'}</button>
+                    </div>
+                </div>`).join('')}`;
+    }
+
+    if (activeTab === 'bills') {
+        currentPanel.innerHTML = `
+            <div class="panel"><h3>Add Bill</h3>
+                <div class="stack">
+                    <input id="bn" placeholder="Name" class="field">
+                    <input id="ba" type="number" placeholder="Amount" class="field">
+                    <input id="bd" type="date" class="field">
+                    <select id="bf" class="field"><option>Monthly</option><option>Weekly</option><option>Bi-Weekly</option></select>
+                    <button class="btn" onclick="addBill()">Save Bill</button>
+                </div>
+            </div>
+            ${state.bills.map(b => `<div class="panel flex-between"><div><strong>${b.name}</strong><br><small>${b.freq} - ${format(b.amount)}</small></div><button class="mini-btn" onclick="state.bills=state.bills.filter(x=>x.id!=='${b.id}');save()">Del</button></div>`).join('')}`;
+    }
+
+    if (activeTab === 'settings') {
+        currentPanel.innerHTML = `
+            <div class="panel"><h3>Config</h3>
+                <div class="stack">
+                    <label>User Name</label><input class="field" value="${state.userName}" onchange="state.userName=this.value;save()">
+                    <label>Start Balance</label><input type="number" class="field" value="${state.settings.initialBalance}" onchange="state.settings.initialBalance=parseFloat(this.value);save()">
+                    <label>Anchor Date</label><input type="date" class="field" value="${state.settings.anchorDate}" onchange="state.settings.anchorDate=this.value;save()">
+                    <label>Days Per Period</label><input type="number" class="field" value="${state.settings.periodDays}" onchange="state.settings.periodDays=parseInt(this.value);save()">
+                    <button class="btn" style="background:#e74c3c" onclick="if(confirm('Reset?')){state=defaultData;save()}">Reset All Data</button>
+                </div>
+            </div>`;
+    }
 }
 
-function addB() {
-    const n=document.getElementById('bN').value, a=parseFloat(document.getElementById('bA').value), d=document.getElementById('bD').value, f=document.getElementById('bF').value, c=document.getElementById('bC').value;
-    if(n && a && d) { state.bills.push({ id: makeId('bill'), name: n, amount: a, date: d, frequency: f, customDays: c }); saveState(); }
-}
-function editB(id) {
-    const b = state.bills.find(x => x.id === id);
-    const n = prompt("Edit Name:", b.name), a = prompt("Edit Amount:", b.amount);
-    if(n && a) { b.name = n; b.amount = parseFloat(a); saveState(); }
+function addBill() {
+    const name = document.getElementById('bn').value, amt = parseFloat(document.getElementById('ba').value), dt = document.getElementById('bd').value, fr = document.getElementById('bf').value;
+    if(name && amt && dt) { state.bills.push({ id: makeId('b'), name, amount: amt, date: dt, freq: fr }); save(); }
 }
 
-function renderSpending() {
-    document.getElementById('tab-spending').innerHTML = `<div class="panel"><h3>Other Spending</h3><div class="stack"><input type="text" id="sD" class="field" placeholder="What did you buy?"><input type="number" id="sA" class="field" placeholder="$"><input type="date" id="sDt" class="field" value="${toISODate(new Date())}"><button class="btn" onclick="addS()">Add Expense</button></div></div>
-    <div class="stack" style="padding:0 15px;">${state.spending.sort((a,b)=>b.date.localeCompare(a.date)).map(s => `<div class="panel flex-between" style="margin:0 0 10px 0;"><div><small>${s.date}</small><br><strong>${s.description}</strong></div><strong>${formatMoney(s.amount)}</strong></div>`).join('')}</div>`;
-}
-function addS() { const d=document.getElementById('sD').value, a=parseFloat(document.getElementById('sA').value), dt=document.getElementById('sDt').value; if(d && a) { state.spending.push({ id: makeId('sp'), description: d, amount: a, date: dt }); saveState(); } }
-
-function renderDeposits() {
-    document.getElementById('tab-deposits').innerHTML = `<div class="panel"><h3>Deposits</h3><div class="stack"><input type="text" id="dD" class="field" placeholder="Source"><input type="number" id="dA" class="field" placeholder="$"><input type="date" id="dDt" class="field" value="${toISODate(new Date())}"><button class="btn" onclick="addD()">Add Income</button></div></div>
-    <div class="stack" style="padding:0 15px;">${state.deposits.sort((a,b)=>b.date.localeCompare(a.date)).map(d => `<div class="panel flex-between" style="margin:0 0 10px 0;"><div><small>${d.date}</small><br><strong>${d.description}</strong></div><strong style="color:var(--secondary)">+${formatMoney(d.amount)}</strong></div>`).join('')}</div>`;
-}
-function addD() { const d=document.getElementById('dD').value, a=parseFloat(document.getElementById('dA').value), dt=document.getElementById('dDt').value; if(d && a) { state.deposits.push({ id: makeId('dp'), description: d, amount: a, date: dt }); saveState(); } }
-
-function renderSettings() {
-  document.getElementById('tab-settings').innerHTML = `
-    <div class="panel"><h3>Config</h3>
-        <div class="stack">
-            <label>Display Name</label><input type="text" class="field" value="${state.userName}" onchange="state.userName=this.value;saveState()">
-            <label>Starting Balance</label><input type="number" class="field" value="${state.settings.initialBalance}" onchange="state.settings.initialBalance=parseFloat(this.value);saveState()">
-            <label>Anchor Date (Payday)</label><input type="date" class="field" value="${state.settings.anchorDate}" onchange="state.settings.anchorDate=this.value;saveState()">
-            <label>Days per Period</label><input type="number" class="field" value="${state.settings.periodDays}" onchange="state.settings.periodDays=parseInt(this.value);saveState()">
-        </div>
-    </div>
-    <div class="panel"><h3>Data Tools</h3><div class="stack"><button class="btn" onclick="exportCSV()">Export to CSV</button><button class="btn danger-btn" onclick="if(confirm('Delete all data?')){state=clone(defaultData);saveState()}">Factory Reset</button></div></div>`;
-}
-function exportCSV() { let csv="Type,Date,Description,Amount\n"; state.spending.forEach(s=>csv+=`Expense,${s.date},"${s.description}",${s.amount}\n`); state.deposits.forEach(d=>csv+=`Income,${d.date},"${d.description}",${d.amount}\n`); const blob=new Blob([csv],{type:'text/csv'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='BudgetFlow_Export.csv'; a.click(); }
-
-function switchTab(id) {
-    activeTab = id;
-    renderApp();
-}
-
-function renderApp() {
-  const container = document.getElementById('tabs-container');
-  container.innerHTML = TABS.map(t => `<button class="tab-btn ${activeTab === t.id ? 'active' : ''}" onclick="switchTab('${t.id}')">${t.label}</button>`).join('');
-  
-  document.querySelectorAll('.tab-panel').forEach(p => p.classList.add('hidden'));
-  const activeP = document.getElementById(`tab-${activeTab}`);
-  if (activeP) {
-      activeP.classList.remove('hidden');
-      if (activeTab === 'dashboard') renderDashboard();
-      else if (activeTab === 'bills') renderBills();
-      else if (activeTab === 'schedule') renderSchedule();
-      else if (activeTab === 'budget') renderBudget();
-      else if (activeTab === 'spending') renderSpending();
-      else if (activeTab === 'deposits') renderDeposits();
-      else if (activeTab === 'settings') renderSettings();
-  }
-}
-window.onload = renderApp;
+render();
