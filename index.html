@@ -3,6 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#74b9ff">
+    <link rel="apple-touch-icon" href="https://upload.wikimedia.org/wikipedia/commons/thumb/1/18/Font_Awesome_5_solid_wallet.svg/512px-Font_Awesome_5_solid_wallet.svg.png">
+    
     <title>BudgetFlow Pro</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
@@ -46,7 +52,7 @@
         }
         .tab-btn.active { opacity: 1; color: var(--primary); border-bottom: 3px solid var(--primary); }
 
-        /* NATIVE CSS SCROLL ENGINE: Immune to bleeding and math errors */
+        /* NATIVE CSS SCROLL ENGINE */
         #swipe-wrapper {
             flex: 1; display: flex; width: 100%;
             overflow-x: auto; overflow-y: hidden;
@@ -74,6 +80,14 @@
         input[type="date"].field { line-height: 46px; }
 
         .btn { width: 100%; padding: 14px; border-radius: 12px; border: none; font-weight: bold; font-size:15px; cursor: pointer; margin-top:5px; }
+        
+        /* SQUISHY BUTTON PHYSICS */
+        .btn:active, .tab-btn:active {
+            transform: scale(0.95);
+            transition: transform 0.1s ease;
+            opacity: 0.8;
+        }
+
         .summary-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; padding: 0 12px; }
         .summary-card { background: var(--panel); padding: 12px 5px; border-radius: 12px; text-align: center; border: 1px solid var(--border); }
         .item-row { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--border); }
@@ -253,7 +267,6 @@
         document.body.classList.toggle('dark', state.darkMode);
         document.getElementById('welcome-text').innerText = `Welcome, ${state.userName}`;
         
-        // Render static tabs once to preserve sliding nav bindings
         if(!document.getElementById('tabs-container').innerHTML) {
             document.getElementById('tabs-container').innerHTML = TABS.map((t, i) => `<button class="tab-btn ${i===activeIndex?'active':''}" onclick="goToPage(${i})">${t}</button>`).join('');
         }
