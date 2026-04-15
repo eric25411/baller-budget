@@ -28,7 +28,7 @@
         }
         #tabs-container::-webkit-scrollbar { display: none; }
         
-        .tab-btn { padding: 10px 18px; border-radius: 25px; border: 1px solid var(--border); background: var(--panel); color: var(--text); font-weight: 600; cursor: pointer; white-space: nowrap; font-size: 0.9rem; flex-shrink: 0; outline: none; }
+        .tab-btn { padding: 10px 18px; border-radius: 25px; border: 1px solid var(--border); background: var(--panel); color: var(--text); font-weight: 600; cursor: pointer; white-space: nowrap; font-size: 0.9rem; flex-shrink: 0; outline: none; -webkit-tap-highlight-color: transparent; }
         .tab-btn.active { background: var(--primary); color: white; border-color: var(--primary); }
         
         .panel { background: var(--panel); margin: 12px; padding: 15px; border-radius: 16px; border: 1px solid var(--border); box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
@@ -49,7 +49,12 @@
 </head>
 <body>
 
-<div id="app-root"></div>
+<div id="header">
+    <h1 style="margin:0; font-size:1.4rem;">BudgetFlow</h1>
+</div>
+
+<div id="tabs-container"></div>
+<div id="main-content"></div>
 
 <script>
     const STORAGE_KEY = 'budgetflow-v12-final-restored';
@@ -65,14 +70,15 @@
     let periodOffset = 0;
     let myChart = null;
 
-    const save = () => { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); render(); };
+    const save = () => { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); renderContentArea(); };
     const format = (v) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(v || 0);
 
-    function changeTab(tabName) {
+    function changeTab(e, tabName) {
+        if(e) e.preventDefault();
         if (activeTab === tabName) return;
         activeTab = tabName;
-        render();
-        window.scrollTo(0,0);
+        renderTabs();
+        renderContentArea();
     }
 
     function getPeriod() {
@@ -109,8 +115,15 @@
         return rows.sort((a, b) => a.date.localeCompare(b.date));
     }
 
-    function render() {
-        const root = document.getElementById('app-root');
+    function renderTabs() {
+        const container = document.getElementById('tabs-container');
+        container.innerHTML = TABS.map(t => 
+            `<button class="tab-btn ${activeTab === t ? 'active' : ''}" onclick="changeTab(event, '${t}')">${t}</button>`
+        ).join('');
+    }
+
+    function renderContentArea() {
+        const root = document.getElementById('main-content');
         document.body.className = state.darkMode ? 'dark' : '';
         const p = getPeriod();
 
@@ -123,27 +136,11 @@
         const pSpent = state.spending.filter(s => s.date >= p.startStr && s.date <= p.endStr).reduce((s, x) => s + x.amount, 0);
         const pIncome = state.deposits.filter(d => d.date >= p.startStr && d.date <= p.endStr).reduce((s, x) => s + x.amount, 0);
 
-        root.innerHTML = `
-            <div id="header">
-                <h1 style="margin:0; font-size:1.4rem;">BudgetFlow</h1>
-            </div>
-            <div id="tabs-container">
-                ${TABS.map(t => `<button class="tab-btn ${activeTab === t ? 'active' : ''}" onclick="changeTab('${t}')">${t}</button>`).join('')}
-            </div>
-            <div id="main-content">
-                ${renderContent(p, pBills, pSpent, pIncome, runningBalance)}
-            </div>
-        `;
-        if (activeTab === 'Dashboard') {
-            setTimeout(() => initChart(pBills, pSpent, pIncome), 10);
-        }
-    }
+        const nav = `<div class="flex-between" style="padding:15px 12px;"><button class="tab-btn" onclick="periodOffset--; renderContentArea()">❮</button><strong>${p.label}</strong><button class="tab-btn" onclick="periodOffset++; renderContentArea()">❯</button></div>`;
 
-    function renderContent(p, pBills, pSpent, pIncome, runningBalance) {
-        const nav = `<div class="flex-between" style="padding:15px 12px;"><button class="tab-btn" style="padding:5px 15px" onclick="periodOffset--;render()">❮</button><strong>${p.label}</strong><button class="tab-btn" style="padding:5px 15px" onclick="periodOffset++;render()">❯</button></div>`;
-
+        let html = '';
         if (activeTab === 'Dashboard') {
-            return nav + `
+            html = nav + `
                 <div class="panel" style="text-align:center">
                     <div style="height:170px;"><canvas id="budgetChart"></canvas></div>
                     <small style="font-weight:700; opacity:0.6; display:block; margin-top:10px;">PROJECTED REMAINING</small>
@@ -158,10 +155,8 @@
                     <button class="btn" style="background:var(--danger);color:white" onclick="quickAdd('spending')">− Spend</button>
                     <button class="btn" style="background:var(--secondary);color:white" onclick="quickAdd('deposits')">+ Income</button>
                 </div>`;
-        }
-
-        if (activeTab === 'Bills') {
-            return `<div class="panel">
+        } else if (activeTab === 'Bills') {
+            html = `<div class="panel">
                 <h3 style="margin-top:0">Add Recurring Bill</h3>
                 <input id="bn" class="field" placeholder="Name">
                 <input id="ba" type="number" class="field" placeholder="Amount">
@@ -172,11 +167,9 @@
             <div class="panel">
                 ${state.bills.map((b, i) => `<div class="item-row flex-between"><div><b>${b.name}</b><br><small>${b.freq}</small></div><div>${format(b.amount)} <span style="color:var(--danger); margin-left:10px" onclick="state.bills.splice(${i},1);save()">✕</span></div></div>`).join('')}
             </div>`;
-        }
-
-        if (activeTab === 'Schedule') {
+        } else if (activeTab === 'Schedule') {
             const list = getSchedule().filter(r => r.date >= p.startStr && r.date <= p.endStr);
-            return nav + `<div class="panel">
+            html = nav + `<div class="panel">
                 ${list.length ? list.map(r => `<div class="item-row flex-between" style="opacity:${r.paid ? 0.5 : 1}">
                     <div><b>${r.name}</b><br><small>${r.date}</small></div>
                     <div style="text-align:right">
@@ -185,11 +178,9 @@
                     </div>
                 </div>`).join('') : '<p style="text-align:center">No bills scheduled.</p>'}
             </div>`;
-        }
-
-        if (activeTab === 'Spending' || activeTab === 'Deposits') {
+        } else if (activeTab === 'Spending' || activeTab === 'Deposits') {
             const list = state[activeTab.toLowerCase()].filter(x => x.date >= p.startStr && x.date <= p.endStr);
-            return nav + `<div class="panel">
+            html = nav + `<div class="panel">
                 <h3 style="margin-top:0">Add ${activeTab}</h3>
                 <input id="en" class="field" placeholder="Description">
                 <input id="ea" type="number" class="field" placeholder="Amount">
@@ -198,10 +189,8 @@
             <div class="panel">
                 ${list.map((x, i) => `<div class="item-row flex-between"><div><b>${x.name}</b><br><small>${x.date}</small></div><b>${format(x.amount)}</b></div>`).join('')}
             </div>`;
-        }
-
-        if (activeTab === 'Goals') {
-            return `<div class="panel">
+        } else if (activeTab === 'Goals') {
+            html = `<div class="panel">
                 <h3 style="margin-top:0">Savings Goals</h3>
                 <input id="gn" class="field" placeholder="Goal Name">
                 <input id="gt" type="number" class="field" placeholder="Target Amount">
@@ -215,10 +204,8 @@
                     <div class="flex-between"><small>${perc.toFixed(0)}% Complete</small> <span style="color:var(--danger)" onclick="state.goals.splice(${i},1);save()">Remove</span></div>
                 </div>`;
             }).join('')}`;
-        }
-
-        if (activeTab === 'Settings') {
-            return `<div class="panel">
+        } else if (activeTab === 'Settings') {
+            html = `<div class="panel">
                 <h3 style="margin-top:0">Settings</h3>
                 <label><small>Display Name</small></label>
                 <input class="field" value="${state.userName}" onchange="state.userName=this.value;save()">
@@ -232,6 +219,11 @@
                 <button class="btn" style="background:var(--border); margin:10px 0" onclick="importJSON()">Restore Data</button>
                 <button class="btn" style="background:var(--danger); color:white" onclick="resetAll()">Reset Everything</button>
             </div>`;
+        }
+
+        root.innerHTML = html;
+        if (activeTab === 'Dashboard') {
+            setTimeout(() => initChart(pBills, pSpent, pIncome), 10);
         }
     }
 
@@ -301,7 +293,10 @@
         });
     }
 
-    document.addEventListener('DOMContentLoaded', render);
+    document.addEventListener('DOMContentLoaded', () => {
+        renderTabs();
+        renderContentArea();
+    });
 </script>
 </body>
 </html>
