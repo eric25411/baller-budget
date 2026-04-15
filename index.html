@@ -20,7 +20,7 @@
             --bg: #0f172a; --panel: #1e293b; --text: #f8fafc; --border: #334155;
         }
         
-        /* THE NUCLEAR IOS LOCK: Prevents all bouncing, zooming, and shifting */
+        /* THE NUCLEAR IOS LOCK */
         html, body { 
             background-color: var(--bg); color: var(--text); 
             font-family: -apple-system, BlinkMacSystemFont, sans-serif;
@@ -74,7 +74,7 @@
             width: 100%; height: 46px; padding: 0 14px; margin: 8px 0; border-radius: 10px; 
             border: 1px solid var(--border); background: var(--bg); color: var(--text);
             box-sizing: border-box; font-family: inherit;
-            font-size: 16px !important; /* THE ANTI-ZOOM LOCK */
+            font-size: 16px !important; 
             -webkit-appearance: none; appearance: none; 
         }
         input[type="date"].field { line-height: 46px; }
@@ -82,7 +82,7 @@
         .btn { width: 100%; padding: 14px; border-radius: 12px; border: none; font-weight: bold; font-size:15px; cursor: pointer; margin-top:5px; }
         
         /* SQUISHY BUTTON PHYSICS */
-        .btn:active, .tab-btn:active {
+        .btn:active, .tab-btn:active, .action-link:active {
             transform: scale(0.95);
             transition: transform 0.1s ease;
             opacity: 0.8;
@@ -156,7 +156,6 @@
     let myChart = null;
     let editingBillIndex = null;
 
-    // --- Native Scroll Observer ---
     const swipeObserver = new IntersectionObserver((entries) => {
         entries.forEach(entry => {
             if (entry.isIntersecting && entry.intersectionRatio > 0.5) {
@@ -186,7 +185,6 @@
         document.querySelectorAll('.view-page')[index].scrollIntoView({ behavior: 'smooth' }); 
     }
 
-    // --- Core Logic ---
     const save = () => { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); render(); };
     const format = (v) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(v || 0);
 
@@ -386,13 +384,17 @@
             </div>
             <div class="panel">
                 ${state.goals.map((g, i) => { 
-                    const perc = Math.min((state.settings.rollover / g.target) * 100, 100) || 0; 
-                    return `<div style="margin-bottom:20px;">
-                        <div style="display:flex; justify-content:space-between;"><strong>${g.name}</strong> <span>${format(state.settings.rollover)} / ${format(g.target)}</span></div>
+                    const current = g.current || 0;
+                    const perc = Math.min((current / g.target) * 100, 100) || 0; 
+                    return `<div class="temp-bill-box" style="margin-bottom:15px; margin-top:0;">
+                        <div style="display:flex; justify-content:space-between; margin-bottom:5px;"><strong>${g.name}</strong> <span>${format(current)} / ${format(g.target)}</span></div>
                         <div class="progress-bar" style="background:var(--bg); height:12px; border-radius:10px; margin:10px 0; border:1px solid var(--border); overflow:hidden;"><div class="progress-fill" style="background:var(--secondary); height:100%; width:${perc}%"></div></div>
-                        <div style="display:flex; justify-content:space-between; font-size:13px;">
-                            <span style="color:var(--primary); font-weight:bold;">${perc.toFixed(0)}%</span>
-                            <span class="danger-link" onclick="state.goals.splice(${i},1);save()">Delete</span>
+                        <div style="display:flex; justify-content:space-between; align-items:center; font-size:13px; margin-top:10px;">
+                            <span style="color:var(--primary); font-weight:bold; font-size: 15px;">${perc.toFixed(0)}%</span>
+                            <div>
+                                <span class="action-link" style="margin-right:15px; font-size:14px;" onclick="addGoalFunds(${i})">+ Add Funds</span>
+                                <span class="danger-link" onclick="deleteItem('goals', ${i})">Delete</span>
+                            </div>
                         </div>
                     </div>`; 
                 }).join('') || '<p style="opacity:0.6; text-align:center;">No active goals.</p>'}
@@ -409,7 +411,7 @@
                 <h3 style="margin-top:0">Pay Cycle Setup</h3>
                 <label><small>Starting Balance</small></label>
                 <input type="number" class="field" value="${state.settings.initialBalance}" onchange="state.settings.initialBalance=parseFloat(this.value)||0;save()">
-                <label><small>Manual Rollover (For Goals)</small></label>
+                <label><small>Manual Rollover</small></label>
                 <input type="number" class="field" value="${state.settings.rollover}" onchange="state.settings.rollover=parseFloat(this.value)||0;save()">
                 <label><small>Anchor Date</small></label>
                 <input type="date" class="field" value="${state.settings.anchorDate}" onchange="state.settings.anchorDate=this.value;save()">
@@ -482,7 +484,30 @@
     };
     
     window.deleteItem = (type, idx) => { if(confirm("Delete?")) { state[type].splice(idx, 1); save(); } };
-    window.addGoal = () => { const n = document.getElementById('gName').value, t = parseFloat(document.getElementById('gTarget').value); if(n && t) { state.goals.push({ name:n, target:t }); save(); } };
+    
+    window.addGoal = () => { 
+        const n = document.getElementById('gName').value, t = parseFloat(document.getElementById('gTarget').value); 
+        if(n && t) { state.goals.push({ name:n, target:t, current:0 }); save(); } 
+    };
+    
+    // NEW: Auto-add to spending/deposits when managing goal funds
+    window.addGoalFunds = (idx) => {
+        const goal = state.goals[idx];
+        const amountStr = prompt(`Add funds to ${goal.name} (use negative number to withdraw):`);
+        const amount = parseFloat(amountStr);
+        if(!isNaN(amount) && amount !== 0) {
+            goal.current = (goal.current || 0) + amount;
+            
+            const today = new Date().toISOString().split('T')[0];
+            if (amount > 0) {
+                state.spending.push({ name: `Goal: ${goal.name}`, amount: amount, date: today });
+            } else {
+                state.deposits.push({ name: `Goal: ${goal.name} (Withdrawal)`, amount: Math.abs(amount), date: today });
+            }
+            
+            save();
+        }
+    };
 
     window.handlePayment = (key, defaultAmt) => {
         const meta = state.scheduleMeta[key] || { paid: false };
