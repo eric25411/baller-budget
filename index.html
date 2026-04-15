@@ -13,24 +13,29 @@
         body.dark {
             --bg: #0f172a; --panel: #1e293b; --text: #f8fafc; --border: #334155;
         }
-        body { 
+        
+        /* THE NUCLEAR IOS LOCK: Prevents all bouncing, zooming, and shifting */
+        html, body { 
             background-color: var(--bg); color: var(--text); 
             font-family: -apple-system, BlinkMacSystemFont, sans-serif;
-            margin: 0; 
-            height: 100dvh; 
-            overflow: hidden; 
+            margin: 0; padding: 0; width: 100%; height: 100%;
+            overflow: hidden; position: fixed; inset: 0; 
+            transition: background 0.2s, color 0.2s;
         }
         
+        #app-container { display: flex; flex-direction: column; width: 100%; height: 100%; }
+
+        /* Dynamic notch safety */
         #header { 
             background: var(--primary); color: white; 
             padding: max(20px, env(safe-area-inset-top)) 20px 15px; 
-            text-align: center; 
+            text-align: center; flex-shrink: 0;
         }
         
         #tabs-container { 
             display: flex; overflow-x: auto; background: var(--panel); 
             padding: 0 10px; border-bottom: 1px solid var(--border);
-            scrollbar-width: none; -webkit-overflow-scrolling: touch;
+            scrollbar-width: none; -webkit-overflow-scrolling: touch; flex-shrink: 0;
         }
         #tabs-container::-webkit-scrollbar { display: none; }
         
@@ -41,17 +46,20 @@
         }
         .tab-btn.active { opacity: 1; color: var(--primary); border-bottom: 3px solid var(--primary); }
 
-        /* Resilient Flexbox Engine: Immune to Safari Zooming */
+        /* NATIVE CSS SCROLL ENGINE: Immune to bleeding and math errors */
         #swipe-wrapper {
-            display: flex; 
-            width: 100%; 
-            height: calc(100dvh - 120px); 
-            transition: transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+            flex: 1; display: flex; width: 100%;
+            overflow-x: auto; overflow-y: hidden;
+            scroll-snap-type: x mandatory; scroll-behavior: smooth;
+            -webkit-overflow-scrolling: touch; scrollbar-width: none;
         }
+        #swipe-wrapper::-webkit-scrollbar { display: none; }
+
         .view-page { 
-            flex: 0 0 100%; /* Forces each page to be exactly 1 screen wide perfectly */
-            width: 100%; 
-            height: 100%; overflow-y: auto; padding-bottom: 80px; box-sizing: border-box; 
+            flex: 0 0 100%; width: 100%; height: 100%; 
+            overflow-y: auto; -webkit-overflow-scrolling: touch;
+            scroll-snap-align: center; scroll-snap-stop: always;
+            padding-bottom: 80px; box-sizing: border-box; 
         }
 
         .panel { background: var(--panel); margin: 15px 12px; padding: 20px; border-radius: 16px; border: 1px solid var(--border); box-shadow: 0 2px 10px rgba(0,0,0,0.03); }
@@ -60,12 +68,12 @@
             width: 100%; height: 46px; padding: 0 14px; margin: 8px 0; border-radius: 10px; 
             border: 1px solid var(--border); background: var(--bg); color: var(--text);
             box-sizing: border-box; font-family: inherit;
-            font-size: 16px !important; /* THE ANTI-ZOOM LOCK FOR IOS */
+            font-size: 16px !important; /* THE ANTI-ZOOM LOCK */
             -webkit-appearance: none; appearance: none; 
         }
         input[type="date"].field { line-height: 46px; }
 
-        .btn { width: 100%; padding: 14px; border-radius: 12px; border: none; font-weight: bold; font-size:15px; cursor: pointer; }
+        .btn { width: 100%; padding: 14px; border-radius: 12px; border: none; font-weight: bold; font-size:15px; cursor: pointer; margin-top:5px; }
         .summary-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; padding: 0 12px; }
         .summary-card { background: var(--panel); padding: 12px 5px; border-radius: 12px; text-align: center; border: 1px solid var(--border); }
         .item-row { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--border); }
@@ -81,27 +89,29 @@
         #sheet-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: none; z-index: 999; }
         .sheet-handle { width: 40px; height: 5px; background: var(--border); border-radius: 5px; margin: 0 auto 15px auto; }
         
-        .temp-bill-box { background: rgba(0,0,0,0.03); padding: 15px; border-radius: 10px; border: 1px solid var(--border); margin-bottom: 15px; }
+        .temp-bill-box { background: rgba(0,0,0,0.03); padding: 15px; border-radius: 10px; border: 1px solid var(--border); margin-bottom: 15px; margin-top: 10px;}
         body.dark .temp-bill-box { background: rgba(255,255,255,0.03); }
     </style>
 </head>
 <body>
 
-<div id="header">
-    <h1 style="margin:0; font-size: 22px;">BudgetFlow</h1>
-    <div id="welcome-text" style="opacity:0.8; font-size:13px; margin-top:2px;"></div>
-</div>
+<div id="app-container">
+    <div id="header">
+        <h1 style="margin:0; font-size: 22px;">BudgetFlow</h1>
+        <div id="welcome-text" style="opacity:0.8; font-size:13px; margin-top:2px;"></div>
+    </div>
 
-<div id="tabs-container"></div>
+    <div id="tabs-container"></div>
 
-<div id="swipe-wrapper">
-    <div class="view-page" id="view-dashboard"></div>
-    <div class="view-page" id="view-bills"></div>
-    <div class="view-page" id="view-schedule"></div>
-    <div class="view-page" id="view-spending"></div>
-    <div class="view-page" id="view-deposits"></div>
-    <div class="view-page" id="view-goals"></div>
-    <div class="view-page" id="view-settings"></div>
+    <div id="swipe-wrapper">
+        <div class="view-page" data-index="0" id="view-dashboard"></div>
+        <div class="view-page" data-index="1" id="view-bills"></div>
+        <div class="view-page" data-index="2" id="view-schedule"></div>
+        <div class="view-page" data-index="3" id="view-spending"></div>
+        <div class="view-page" data-index="4" id="view-deposits"></div>
+        <div class="view-page" data-index="5" id="view-goals"></div>
+        <div class="view-page" data-index="6" id="view-settings"></div>
+    </div>
 </div>
 
 <div id="sheet-overlay" onclick="closeSheet()"></div>
@@ -131,8 +141,38 @@
     let periodOffset = 0;
     let myChart = null;
     let editingBillIndex = null;
-    let startX = 0, isSwiping = false;
 
+    // --- Native Scroll Observer ---
+    const swipeObserver = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting && entry.intersectionRatio > 0.5) {
+                const newIndex = parseInt(entry.target.dataset.index);
+                if (activeIndex !== newIndex) {
+                    activeIndex = newIndex;
+                    updateTabsUI();
+                }
+            }
+        });
+    }, { threshold: 0.6 });
+
+    document.querySelectorAll('.view-page').forEach(page => swipeObserver.observe(page));
+
+    function updateTabsUI() {
+        document.querySelectorAll('.tab-btn').forEach((btn, i) => {
+            if (i === activeIndex) {
+                btn.classList.add('active');
+                btn.scrollIntoView({behavior: 'smooth', inline: 'center', block: 'nearest'});
+            } else {
+                btn.classList.remove('active');
+            }
+        });
+    }
+
+    function goToPage(index) { 
+        document.querySelectorAll('.view-page')[index].scrollIntoView({ behavior: 'smooth' }); 
+    }
+
+    // --- Core Logic ---
     const save = () => { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); render(); };
     const format = (v) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(v || 0);
 
@@ -162,7 +202,6 @@
             while (curr <= limit && safety < 100) {
                 const dStr = curr.toISOString().split('T')[0];
                 
-                // Hybrid Logic
                 if (b.isTemporary) {
                     if (b.endType === 'date' && b.endDate && dStr > b.endDate) break;
                     if (b.endType === 'count' && paymentsMade >= b.paymentCount) break;
@@ -214,20 +253,16 @@
         document.body.classList.toggle('dark', state.darkMode);
         document.getElementById('welcome-text').innerText = `Welcome, ${state.userName}`;
         
-        const tabsHtml = TABS.map((t, i) => `<button id="tab-btn-${i}" class="tab-btn ${i === activeIndex ? 'active' : ''}" onclick="goToPage(${i})">${t}</button>`).join('');
-        document.getElementById('tabs-container').innerHTML = tabsHtml;
-
-        // Slide using precise parent-relative percentage math
-        document.getElementById('swipe-wrapper').style.transform = `translateX(-${activeIndex * 100}%)`;
-        
-        const activeTabBtn = document.getElementById(`tab-btn-${activeIndex}`);
-        if(activeTabBtn) activeTabBtn.scrollIntoView({behavior: 'smooth', inline: 'center'});
+        // Render static tabs once to preserve sliding nav bindings
+        if(!document.getElementById('tabs-container').innerHTML) {
+            document.getElementById('tabs-container').innerHTML = TABS.map((t, i) => `<button class="tab-btn ${i===activeIndex?'active':''}" onclick="goToPage(${i})">${t}</button>`).join('');
+        }
 
         const p = getPeriod(periodOffset);
         const nav = `<div style="display:flex; justify-content:space-between; align-items:center; padding:5px 12px; margin-top:10px;">
-            <button class="btn" style="width:auto; padding:8px 15px; background:var(--panel); border:1px solid var(--border); color:var(--text)" onclick="periodOffset--;render()">❮ Prev</button>
+            <button class="btn" style="width:auto; padding:8px 15px; margin:0; background:var(--panel); border:1px solid var(--border); color:var(--text)" onclick="periodOffset--;render()">❮ Prev</button>
             <strong style="color:var(--primary); font-size:16px;">${p.label}</strong>
-            <button class="btn" style="width:auto; padding:8px 15px; background:var(--panel); border:1px solid var(--border); color:var(--text)" onclick="periodOffset++;render()">Next ❯</button>
+            <button class="btn" style="width:auto; padding:8px 15px; margin:0; background:var(--panel); border:1px solid var(--border); color:var(--text)" onclick="periodOffset++;render()">Next ❯</button>
         </div>`;
 
         const t = getTotals(periodOffset);
@@ -245,8 +280,8 @@
                 <div class="summary-card"><small>Income</small><br><strong style="color:var(--secondary)">${format(t.income)}</strong></div>
             </div>
             <div style="display:flex; gap:10px; padding: 15px 12px;">
-                <button class="btn" style="background:var(--danger); color:white" onclick="openSheet('spending')">-$ Spend</button>
-                <button class="btn" style="background:var(--secondary); color:white" onclick="openSheet('deposits')">+$ Income</button>
+                <button class="btn" style="background:var(--danger); color:white; margin:0;" onclick="openSheet('spending')">-$ Spend</button>
+                <button class="btn" style="background:var(--secondary); color:white; margin:0;" onclick="openSheet('deposits')">+$ Income</button>
             </div>`;
 
         const bEdit = editingBillIndex !== null ? state.bills[editingBillIndex] : null;
@@ -283,14 +318,12 @@
                 </div>
 
                 <button class="btn" style="background:var(--primary); color:white" onclick="handleSaveBill()">${bEdit ? 'Update Bill' : 'Add Bill'}</button>
-                ${bEdit ? `<button class="btn" style="background:var(--bg); color:var(--text)" onclick="editingBillIndex=null;render()">Cancel</button>` : ''}
+                ${bEdit ? `<button class="btn" style="background:var(--bg); border:1px solid var(--border); color:var(--text)" onclick="editingBillIndex=null;render()">Cancel</button>` : ''}
             </div>
             <div class="panel">
                 ${state.bills.map((b, i) => {
                     let endStr = '';
-                    if (b.isTemporary) {
-                        endStr = b.endType === 'date' ? ` (Until ${b.endDate})` : ` (${b.paymentCount} payments)`;
-                    }
+                    if (b.isTemporary) { endStr = b.endType === 'date' ? ` (Until ${b.endDate})` : ` (${b.paymentCount} payments)`; }
                     return `
                     <div class="item-row">
                         <div><strong style="font-size:16px">${b.name}</strong><br><small style="opacity:0.7">${b.freq} ${b.startDate || b.date ? 'from ' + (b.startDate || b.date) : ''}${endStr}</small></div>
@@ -343,9 +376,9 @@
                     const perc = Math.min((state.settings.rollover / g.target) * 100, 100) || 0; 
                     return `<div style="margin-bottom:20px;">
                         <div style="display:flex; justify-content:space-between;"><strong>${g.name}</strong> <span>${format(state.settings.rollover)} / ${format(g.target)}</span></div>
-                        <div class="progress-bar" style="background:var(--bg); height:12px; border-radius:10px; margin:10px 0; border:1px solid var(--border);"><div class="progress-fill" style="background:var(--secondary); height:100%; width:${perc}%"></div></div>
+                        <div class="progress-bar" style="background:var(--bg); height:12px; border-radius:10px; margin:10px 0; border:1px solid var(--border); overflow:hidden;"><div class="progress-fill" style="background:var(--secondary); height:100%; width:${perc}%"></div></div>
                         <div style="display:flex; justify-content:space-between; font-size:13px;">
-                            <span style="color:var(--primary)">${perc.toFixed(0)}%</span>
+                            <span style="color:var(--primary); font-weight:bold;">${perc.toFixed(0)}%</span>
                             <span class="danger-link" onclick="state.goals.splice(${i},1);save()">Delete</span>
                         </div>
                     </div>`; 
@@ -376,23 +409,9 @@
                 <button class="btn" style="background:var(--danger); color:white; margin-top:20px;" onclick="if(confirm('Wipe all data permanently?')){localStorage.clear();location.reload();}">Reset App</button>
             </div>`;
 
+        updateTabsUI();
         if(activeIndex === 0) setTimeout(() => drawChart(t), 50);
     }
-
-    function goToPage(index) { activeIndex = index; render(); }
-
-    window.addEventListener('touchstart', e => { startX = e.touches[0].clientX; isSwiping = true; });
-    window.addEventListener('touchmove', () => {});
-    window.addEventListener('touchend', e => {
-        if (!isSwiping) return;
-        let diff = startX - e.changedTouches[0].clientX;
-        if (Math.abs(diff) > 60) {
-            if (diff > 0 && activeIndex < 6) activeIndex++;
-            else if (diff < 0 && activeIndex > 0) activeIndex--;
-            render();
-        }
-        isSwiping = false;
-    });
 
     window.openSheet = (type) => {
         document.getElementById('sheet-title').innerText = type === 'spending' ? 'Add Expense' : 'Add Income';
@@ -420,7 +439,6 @@
         const customDays = document.getElementById('bCustom') ? document.getElementById('bCustom').value : 0;
         const startDate = document.getElementById('bDate').value || state.settings.anchorDate;
         
-        // Hybrid Additions
         const isTemporary = document.getElementById('bIsTemp').checked;
         const endType = document.getElementById('bEndType').value;
         const endDate = document.getElementById('bEndDate').value;
@@ -443,7 +461,13 @@
         save();
     };
 
-    window.startEdit = (idx) => { activeIndex = 1; editingBillIndex = idx; render(); document.getElementById('view-bills').scrollTo(0,0); };
+    window.startEdit = (idx) => { 
+        editingBillIndex = idx; 
+        render(); 
+        goToPage(1); 
+        setTimeout(() => document.getElementById('view-bills').scrollTo(0,0), 50); 
+    };
+    
     window.deleteItem = (type, idx) => { if(confirm("Delete?")) { state[type].splice(idx, 1); save(); } };
     window.addGoal = () => { const n = document.getElementById('gName').value, t = parseFloat(document.getElementById('gTarget').value); if(n && t) { state.goals.push({ name:n, target:t }); save(); } };
 
