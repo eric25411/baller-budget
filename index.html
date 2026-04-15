@@ -9,28 +9,26 @@
     <style>
         :root { --primary: #74b9ff; --secondary: #55efc4; --danger: #ff7675; --bg: #f1f2f6; --panel: #ffffff; --text: #2d3436; --border: #dfe6e9; }
         body.dark { --bg: #0f172a; --panel: #1e293b; --text: #f8fafc; --border: #334155; }
-        body { background-color: var(--bg); color: var(--text); font-family: -apple-system, sans-serif; margin: 0; padding-bottom: 50px; }
+        body { background-color: var(--bg); color: var(--text); font-family: -apple-system, sans-serif; margin: 0; padding-bottom: 60px; transition: background 0.3s; }
         
-        #header { background: var(--primary); color: white; padding: 25px 20px; text-align: center; }
+        #header { background: var(--primary); color: white; padding: 20px 15px; text-align: center; }
         #tabs-container { display: flex; overflow-x: auto; background: var(--panel); padding: 12px; gap: 10px; border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 100; scrollbar-width: none; }
         #tabs-container::-webkit-scrollbar { display: none; }
         
-        .tab-btn { padding: 10px 18px; border-radius: 25px; border: 1px solid var(--border); background: var(--panel); color: var(--text); font-weight: 600; cursor: pointer; white-space: nowrap; }
+        .tab-btn { padding: 10px 18px; border-radius: 25px; border: 1px solid var(--border); background: var(--panel); color: var(--text); font-weight: 600; cursor: pointer; white-space: nowrap; font-size: 0.9rem; }
         .tab-btn.active { background: var(--primary); color: white; border-color: var(--primary); }
         
-        .panel { background: var(--panel); margin: 15px 12px; padding: 20px; border-radius: 16px; border: 1px solid var(--border); box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
-        .stat-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin: 0 12px; }
-        .stat-card { background: var(--panel); padding: 10px; border-radius: 12px; text-align: center; border: 1px solid var(--border); font-size: 0.85rem; }
+        .panel { background: var(--panel); margin: 12px; padding: 15px; border-radius: 16px; border: 1px solid var(--border); box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
+        .stat-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin: 0 12px; }
+        .stat-card { background: var(--panel); padding: 10px 5px; border-radius: 12px; text-align: center; border: 1px solid var(--border); }
+        .stat-card small { font-size: 0.7rem; text-transform: uppercase; opacity: 0.7; font-weight: bold; }
         
-        .field { width: 100%; padding: 14px; margin: 8px 0; border-radius: 10px; border: 1px solid var(--border); background: var(--bg); color: var(--text); box-sizing: border-box; font-size: 16px; }
-        .btn { width: 100%; padding: 14px; border-radius: 10px; border: none; font-weight: bold; cursor: pointer; margin-top: 10px; }
+        .field { width: 100%; padding: 12px; margin: 8px 0; border-radius: 10px; border: 1px solid var(--border); background: var(--bg); color: var(--text); box-sizing: border-box; font-size: 16px; appearance: none; -webkit-appearance: none; }
+        .btn { width: 100%; padding: 12px; border-radius: 10px; border: none; font-weight: bold; cursor: pointer; margin-top: 5px; }
         
         .flex-between { display: flex; justify-content: space-between; align-items: center; }
-        .item-row { padding: 12px 0; border-bottom: 1px solid var(--border); }
+        .item-row { padding: 10px 0; border-bottom: 1px solid var(--border); font-size: 0.95rem; }
         .item-row:last-child { border-bottom: none; }
-
-        .progress-bar { background: var(--bg); height: 12px; border-radius: 10px; margin-top: 10px; overflow: hidden; }
-        .progress-fill { background: var(--secondary); height: 100%; transition: width 0.3s; }
     </style>
 </head>
 <body>
@@ -39,12 +37,12 @@
 
 <script>
     const STORAGE_KEY = 'budgetflow-v12-final-restored';
-    const TABS = ['Dashboard', 'Bills', 'Schedule', 'Spending', 'Deposits', 'Goals', 'Settings'];
+    const TABS = ['Dashboard', 'Bills', 'Schedule', 'Spending', 'Deposits', 'Settings'];
 
     let state = JSON.parse(localStorage.getItem(STORAGE_KEY)) || {
         userName: 'Manny', darkMode: true,
         settings: { initialBalance: 56.85, rollover: 0, anchorDate: '2026-03-29', periodDays: 14 },
-        bills: [], spending: [], deposits: [], scheduleMeta: {}, goals: []
+        bills: [], spending: [], deposits: [], scheduleMeta: {}
     };
 
     let activeTab = 'Dashboard';
@@ -93,15 +91,21 @@
         document.body.className = state.darkMode ? 'dark' : '';
         const p = getPeriod();
 
+        // CUMULATIVE MATH: Totals up to the END of this period
+        const totalBillsToDate = getSchedule().filter(r => r.date <= p.endStr).reduce((s, r) => s + (r.actual ?? r.amount), 0);
+        const totalSpentToDate = state.spending.filter(s => s.date <= p.endStr).reduce((s, x) => s + x.amount, 0);
+        const totalIncomeToDate = state.deposits.filter(d => d.date <= p.endStr).reduce((s, x) => s + x.amount, 0);
+        const runningBalance = (state.settings.initialBalance + state.settings.rollover + totalIncomeToDate) - (totalBillsToDate + totalSpentToDate);
+
+        // PERIOD SPECIFIC MATH (For the 3 small cards)
         const pBills = getSchedule().filter(r => r.date >= p.startStr && r.date <= p.endStr).reduce((s, r) => s + (r.actual ?? r.amount), 0);
         const pSpent = state.spending.filter(s => s.date >= p.startStr && s.date <= p.endStr).reduce((s, x) => s + x.amount, 0);
         const pIncome = state.deposits.filter(d => d.date >= p.startStr && d.date <= p.endStr).reduce((s, x) => s + x.amount, 0);
-        const runningBalance = (state.settings.initialBalance + state.settings.rollover + pIncome) - (pBills + pSpent);
 
         root.innerHTML = `
             <div id="header">
-                <h1 style="margin:0">BudgetFlow</h1>
-                <div style="opacity:0.8">Welcome, ${state.userName}</div>
+                <h1 style="margin:0; font-size:1.4rem;">BudgetFlow</h1>
+                <div style="opacity:0.8; font-size:0.9rem;">Welcome, ${state.userName}</div>
             </div>
             <div id="tabs-container">
                 ${TABS.map(t => `<button class="tab-btn ${activeTab === t ? 'active' : ''}" onclick="activeTab='${t}';render()">${t}</button>`).join('')}
@@ -114,14 +118,14 @@
     }
 
     function renderContent(p, pBills, pSpent, pIncome, runningBalance) {
-        const nav = `<div class="flex-between" style="padding:15px 12px;"><button class="tab-btn" onclick="periodOffset--;render()">❮</button><strong>${p.label}</strong><button class="tab-btn" onclick="periodOffset++;render()">❯</button></div>`;
+        const nav = `<div class="flex-between" style="padding:15px 12px;"><button class="tab-btn" style="padding:5px 15px" onclick="periodOffset--;render()">❮</button><strong>${p.label}</strong><button class="tab-btn" style="padding:5px 15px" onclick="periodOffset++;render()">❯</button></div>`;
 
         if (activeTab === 'Dashboard') {
             return nav + `
                 <div class="panel" style="text-align:center">
-                    <div style="height:180px;"><canvas id="budgetChart"></canvas></div>
-                    <small style="font-weight:700; opacity:0.6">PROJECTED REMAINING</small>
-                    <div style="font-size:2.5rem; font-weight:800; color:var(--primary)">${format(runningBalance)}</div>
+                    <div style="height:170px;"><canvas id="budgetChart"></canvas></div>
+                    <small style="font-weight:700; opacity:0.6; display:block; margin-top:10px;">PROJECTED REMAINING</small>
+                    <div style="font-size:2.2rem; font-weight:800; color:var(--primary)">${format(runningBalance)}</div>
                 </div>
                 <div class="stat-grid">
                     <div class="stat-card"><small>Bills</small><div style="color:var(--danger);font-weight:bold">${format(pBills)}</div></div>
@@ -136,15 +140,15 @@
 
         if (activeTab === 'Bills') {
             return `<div class="panel">
-                <h3>Add Recurring Bill</h3>
-                <input id="bn" class="field" placeholder="Name">
+                <h3 style="margin-top:0">Recurring Bills</h3>
+                <input id="bn" class="field" placeholder="Name (e.g. Rent)">
                 <input id="ba" type="number" class="field" placeholder="Amount">
                 <input id="bd" type="date" class="field">
-                <select id="bf" class="field"><option>Monthly</option><option>Bi-Weekly</option><option>Weekly</option><option>One-Time</option></select>
+                <select id="bf" class="field"><option>Monthly</option><option>Bi-Weekly</option><option>Weekly</option></select>
                 <button class="btn" style="background:var(--primary);color:white" onclick="addBill()">Add Bill</button>
             </div>
             <div class="panel">
-                ${state.bills.map((b, i) => `<div class="item-row flex-between"><div><b>${b.name}</b><br><small>${b.freq}</small></div><div>${format(b.amount)} <span style="color:var(--danger); padding-left:10px;" onclick="state.bills.splice(${i},1);save()">✕</span></div></div>`).join('')}
+                ${state.bills.map((b, i) => `<div class="item-row flex-between"><div><b>${b.name}</b><br><small>${b.freq}</small></div><div>${format(b.amount)} <span style="color:var(--danger); margin-left:10px" onclick="state.bills.splice(${i},1);save()">✕</span></div></div>`).join('')}
             </div>`;
         }
 
@@ -153,45 +157,40 @@
             return nav + `<div class="panel">
                 ${list.length ? list.map(r => `<div class="item-row flex-between" style="opacity:${r.paid ? 0.5 : 1}">
                     <div><b>${r.name}</b><br><small>${r.date}</small></div>
-                    <button class="tab-btn" style="background:${r.paid ? 'var(--secondary)' : 'var(--bg)'}" onclick="togglePaid('${r.rowKey}')">${r.paid ? 'Paid' : 'Pay'}</button>
-                </div>`).join('') : '<p style="text-align:center">No bills this period.</p>'}
+                    <div style="text-align:right">
+                        <div style="font-weight:bold">${format(r.amount)}</div>
+                        <button class="tab-btn" style="padding:2px 10px; font-size:0.7rem; margin-top:4px; background:${r.paid ? 'var(--secondary)' : 'var(--bg)'}" onclick="togglePaid('${r.rowKey}')">${r.paid ? 'Paid' : 'Mark Paid'}</button>
+                    </div>
+                </div>`).join('') : '<p style="text-align:center">No bills scheduled.</p>'}
             </div>`;
         }
 
         if (activeTab === 'Spending' || activeTab === 'Deposits') {
             const list = state[activeTab.toLowerCase()].filter(x => x.date >= p.startStr && x.date <= p.endStr);
-            return nav + `<div class="panel">
-                <h3>${activeTab} This Period</h3>
+            return nav + `
+            <div class="panel">
+                <h3 style="margin-top:0">Add ${activeTab}</h3>
+                <input id="en" class="field" placeholder="Description">
+                <input id="ea" type="number" class="field" placeholder="Amount">
+                <button class="btn" style="background:var(--primary);color:white" onclick="manualAdd('${activeTab.toLowerCase()}')">Save Entry</button>
+            </div>
+            <div class="panel">
                 ${list.map((x, i) => `<div class="item-row flex-between"><div><b>${x.name}</b><br><small>${x.date}</small></div><b>${format(x.amount)}</b></div>`).join('')}
             </div>`;
         }
 
-        if (activeTab === 'Goals') {
-            return `<div class="panel">
-                <h3>Savings Goals</h3>
-                <input id="gn" class="field" placeholder="Goal Name (e.g. Vacation)">
-                <input id="gt" type="number" class="field" placeholder="Target Amount">
-                <button class="btn" style="background:var(--primary);color:white" onclick="addGoal()">Add Goal</button>
-            </div>
-            ${state.goals.map((g, i) => {
-                const perc = Math.min((state.settings.rollover / g.target) * 100, 100);
-                return `<div class="panel">
-                    <div class="flex-between"><b>${g.name}</b> <span>${format(g.target)}</span></div>
-                    <div class="progress-bar"><div class="progress-fill" style="width:${perc}%"></div></div>
-                    <small>${perc.toFixed(0)}% saved via rollover</small>
-                </div>`;
-            }).join('')}`;
-        }
-
         if (activeTab === 'Settings') {
             return `<div class="panel">
-                <h3>User & Theme</h3>
+                <h3 style="margin-top:0">User Settings</h3>
                 <input class="field" value="${state.userName}" onchange="state.userName=this.value;save()">
                 <button class="btn" onclick="state.darkMode=!state.darkMode;save()">${state.darkMode ? '☀️ Light' : '🌙 Dark'} Mode</button>
-                <h3>Financials</h3>
-                <label><small>Starting Balance</small></label><input type="number" class="field" value="${state.settings.initialBalance}" onchange="state.settings.initialBalance=parseFloat(this.value);save()">
+                <hr style="border:0; border-top:1px solid var(--border); margin:20px 0;">
+                <label><small>Initial Starting Balance</small></label><input type="number" class="field" value="${state.settings.initialBalance}" onchange="state.settings.initialBalance=parseFloat(this.value);save()">
                 <label><small>Manual Rollover</small></label><input type="number" class="field" value="${state.settings.rollover}" onchange="state.settings.rollover=parseFloat(this.value);save()">
-                <label><small>Anchor Date</small></label><input type="date" class="field" value="${state.settings.anchorDate}" onchange="state.settings.anchorDate=this.value;save()">
+                <label><small>Pay Period Anchor Date</small></label><input type="date" class="field" value="${state.settings.anchorDate}" onchange="state.settings.anchorDate=this.value;save()">
+                <hr style="border:0; border-top:1px solid var(--border); margin:20px 0;">
+                <button class="btn" style="background:var(--primary); color:white" onclick="exportJSON()">Backup Data (JSON)</button>
+                <button class="btn" style="background:var(--border); margin-top:10px" onclick="importJSON()">Restore Data</button>
             </div>`;
         }
     }
@@ -206,6 +205,15 @@
         }
     };
 
+    window.manualAdd = (type) => {
+        const n = document.getElementById('en').value;
+        const a = document.getElementById('ea').value;
+        if(n && a) {
+            state[type].push({ name: n, amount: parseFloat(a), date: new Date().toISOString().split('T')[0] });
+            save();
+        }
+    };
+
     window.addBill = () => {
         const n = document.getElementById('bn').value;
         const a = document.getElementById('ba').value;
@@ -214,16 +222,26 @@
         if(n && a && d) { state.bills.push({ name: n, amount: parseFloat(a), date: d, freq: f, id: Date.now() }); save(); }
     };
 
-    window.addGoal = () => {
-        const n = document.getElementById('gn').value;
-        const t = document.getElementById('gt').value;
-        if(n && t) { state.goals.push({ name: n, target: parseFloat(t) }); save(); }
-    };
-
     window.togglePaid = (key) => {
         state.scheduleMeta[key] = state.scheduleMeta[key] || { paid: false };
         state.scheduleMeta[key].paid = !state.scheduleMeta[key].paid;
         save();
+    };
+
+    window.exportJSON = () => {
+        const blob = new Blob([JSON.stringify(state)], { type: 'application/json' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `budgetflow_backup_${new Date().toISOString().split('T')[0]}.json`;
+        a.click();
+    };
+
+    window.importJSON = () => {
+        const input = prompt("Paste your JSON backup data here:");
+        if (input) {
+            try { state = JSON.parse(input); save(); alert("Data Restored!"); }
+            catch(e) { alert("Invalid data format."); }
+        }
     };
 
     function initChart(b, s, i) {
@@ -238,7 +256,6 @@
     }
 
     document.addEventListener('DOMContentLoaded', render);
-    if (document.readyState === "complete" || document.readyState === "interactive") render();
 </script>
 </body>
 </html>
