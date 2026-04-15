@@ -1,4 +1,9 @@
-const STORAGE_KEY = 'budgetflow-v12-4';
+const STORAGE_KEY = 'budgetflow-v12-5';
+
+// Load Chart.js CDN
+const chartScript = document.createElement('script');
+chartScript.src = 'https://cdn.jsdelivr.net/npm/chart.js';
+document.head.appendChild(chartScript);
 
 const TABS = [
   { id: 'dashboard', label: 'Dashboard' },
@@ -32,21 +37,21 @@ style.textContent = `
     .flex-between { display: flex; justify-content: space-between; align-items: center; }
     .stat-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
     .mini-btn { padding: 6px 12px; border-radius: 8px; border: none; font-size: 0.8rem; cursor: pointer; background: var(--border); color: var(--text); font-weight: 600; }
-    .progress-bg { background: var(--border); border-radius: 10px; height: 10px; width: 100%; margin: 10px 0; overflow: hidden; }
-    .progress-fill { background: var(--secondary); height: 100%; transition: width 0.3s; }
+    .chart-container { position: relative; height: 200px; width: 100%; margin-bottom: 15px; }
     .paid { color: var(--secondary); font-weight: bold; }
 `;
 document.head.appendChild(style);
 
 // --- APP INITIALIZATION ---
 const defaultData = { userName: 'Baller', darkMode: false, settings: { initialBalance: 0, rollover: 0, anchorDate: '2026-03-29', periodDays: 14 }, bills: [], spending: [], deposits: [], scheduleMeta: {}, goals: [] };
-let state = JSON.parse(localStorage.getItem(STORAGE_KEY)) || JSON.parse(localStorage.getItem('budgetflow-v12-3')) || defaultData;
+let state = JSON.parse(localStorage.getItem(STORAGE_KEY)) || JSON.parse(localStorage.getItem('budgetflow-v12-4')) || defaultData;
 
 let activeTab = 'dashboard';
 let periodOffset = 0;
 let lastTabScroll = 0;
 let lastPageScroll = 0;
 let editingBillId = null;
+let myChart = null;
 
 const save = () => { 
     lastPageScroll = window.scrollY;
@@ -88,6 +93,28 @@ function getSchedule() {
     return rows.sort((a, b) => a.date.localeCompare(b.date));
 }
 
+function initChart(bills, spend, income) {
+    const ctx = document.getElementById('budgetChart')?.getContext('2d');
+    if (!ctx) return;
+    if (myChart) myChart.destroy();
+    myChart = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: ['Bills', 'Spending', 'Income'],
+            datasets: [{
+                data: [bills, spend, income],
+                backgroundColor: ['#e74c3c', '#ff9f43', '#2ecc71'],
+                borderWidth: 0,
+                hoverOffset: 4
+            }]
+        },
+        options: {
+            maintainAspectRatio: false,
+            plugins: { legend: { position: 'bottom', labels: { color: state.darkMode ? '#e0e0e0' : '#333', font: { size: 10 } } } }
+        }
+    });
+}
+
 function render() {
     if (state.darkMode) document.body.classList.add('dark'); else document.body.classList.remove('dark');
     const tabsContainer = document.getElementById('tabs-container');
@@ -119,7 +146,11 @@ function render() {
         const periodIncome = state.deposits.filter(d => d.date >= p.startStr && d.date <= p.endStr).reduce((s, x) => s + x.amount, 0);
 
         content.innerHTML = periodNav + `
-            <div class="panel" style="text-align:center"><small style="font-weight:bold; opacity:0.7">PROJECTED REMAINING</small><div style="font-size:2.2rem; font-weight:800; color:var(--primary)">${format(runningBalance)}</div></div>
+            <div class="panel" style="text-align:center">
+                <div class="chart-container"><canvas id="budgetChart"></canvas></div>
+                <small style="font-weight:bold; opacity:0.7">PROJECTED REMAINING</small>
+                <div style="font-size:2.2rem; font-weight:800; color:var(--primary)">${format(runningBalance)}</div>
+            </div>
             <div style="display: flex; gap: 10px; margin: 0 12px 12px;">
                 <button class="btn btn-outline" style="flex:1" onclick="quickAdd('spending')">− Quick Spend</button>
                 <button class="btn btn-outline" style="flex:1; border-color:var(--secondary); color:var(--secondary)" onclick="quickAdd('deposits')">+ Quick Income</button>
@@ -129,13 +160,15 @@ function render() {
                 <div class="panel" style="margin:0; padding:10px;"><small>Spend</small><div style="font-weight:700; color:var(--danger)">${format(periodSpent)}</div></div>
                 <div class="panel" style="margin:0; padding:10px;"><small>Income</small><div style="font-weight:700; color:var(--secondary)">${format(periodIncome)}</div></div>
             </div>`;
+        
+        setTimeout(() => initChart(periodBills, periodSpent, periodIncome), 50);
     } else if (activeTab === 'goals') {
         content.innerHTML = `
             <div class="panel"><h3>New Saving Goal</h3><input id="gn" placeholder="Goal Name" class="field"><input id="gt" type="number" placeholder="Target Amount" class="field"><button class="btn" onclick="addGoal()">Create Goal</button></div>
             ${(state.goals || []).map((g, i) => {
                 const percent = Math.min(Math.round((g.current / g.target) * 100), 100);
                 return `<div class="panel">
-                    <div class="flex-between"><strong>${g.name}</strong><button class="mini-btn" style="color:var(--danger)" onclick="state.goals.splice(${i},1);save()">✕</button></div>
+                    <div class="flex-between"><strong>${g.name}</strong><button class="mini-btn" style="color:var(--danger)" onclick="state.goals.splice(i,1);save()">✕</button></div>
                     <div class="progress-bg"><div class="progress-fill" style="width:${percent}%"></div></div>
                     <div class="flex-between"><small>${format(g.current)} / ${format(g.target)}</small><small>${percent}%</small></div>
                     <button class="btn btn-outline" style="margin-top:10px" onclick="fundGoal('${g.id}')">+ Add Funds</button>
