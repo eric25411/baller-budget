@@ -9,7 +9,7 @@
     <meta name="theme-color" content="#74b9ff">
     <link rel="apple-touch-icon" href="https://upload.wikimedia.org/wikipedia/commons/thumb/1/18/Font_Awesome_5_solid_wallet.svg/512px-Font_Awesome_5_solid_wallet.svg.png">
     
-    <title>BudgetFlow Pro</title>
+    <title>BudgetFlow Pro V2</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         :root {
@@ -31,7 +31,6 @@
         
         #app-container { display: flex; flex-direction: column; width: 100%; height: 100%; }
 
-        /* Dynamic notch safety */
         #header { 
             background: var(--primary); color: white; 
             padding: max(20px, env(safe-area-inset-top)) 20px 15px; 
@@ -105,6 +104,8 @@
         
         .temp-bill-box { background: rgba(0,0,0,0.03); padding: 15px; border-radius: 10px; border: 1px solid var(--border); margin-bottom: 15px; margin-top: 10px;}
         body.dark .temp-bill-box { background: rgba(255,255,255,0.03); }
+        
+        .cat-tag { display: inline-block; padding: 2px 8px; border-radius: 5px; font-size: 11px; font-weight: bold; background: var(--bg); border: 1px solid var(--border); margin-top: 4px; opacity: 0.8; }
     </style>
 </head>
 <body>
@@ -135,6 +136,18 @@
     <input id="qDesc" class="field" placeholder="Description (e.g. Groceries)">
     <input id="qAmt" type="number" class="field" placeholder="Amount">
     <input id="qDate" type="date" class="field">
+    
+    <select id="qCategory" class="field" style="display:none;">
+        <option value="Uncategorized">Uncategorized</option>
+        <option value="Groceries">Groceries</option>
+        <option value="Dining Out">Dining Out</option>
+        <option value="Shopping">Shopping</option>
+        <option value="Entertainment">Entertainment</option>
+        <option value="Auto & Gas">Auto & Gas</option>
+        <option value="Utilities">Utilities</option>
+        <option value="Goal Funding">Goal Funding</option>
+    </select>
+
     <div style="display:flex; gap:10px; margin-top:15px;">
         <button class="btn" style="background:var(--border); color:var(--text)" onclick="closeSheet()">Cancel</button>
         <button id="sheet-save" class="btn" style="background:var(--primary); color:white">Save</button>
@@ -154,7 +167,9 @@
     let activeIndex = 0;
     let periodOffset = 0;
     let myChart = null;
+    let catChart = null; // New chart instance
     let editingBillIndex = null;
+    let editingTransaction = null; // New tracker for editing past expenses
 
     const swipeObserver = new IntersectionObserver((entries) => {
         entries.forEach(entry => {
@@ -242,23 +257,33 @@
     function getTotals(offset) {
         let balance = state.settings.initialBalance;
         let pBills = 0, pSpent = 0, pIncome = 0;
+        let categoryBreakdown = {}; // V2 Analytics
 
         for (let i = 0; i <= offset; i++) {
             const p = getPeriod(i);
             const filter = (item) => item.date >= p.startStr && item.date <= p.endStr;
             
-            const income = state.deposits.filter(filter).reduce((a, b) => a + (parseFloat(b.amount)||0), 0);
-            const spent = state.spending.filter(filter).reduce((a, b) => a + (parseFloat(b.amount)||0), 0);
+            const periodIncome = state.deposits.filter(filter);
+            const periodSpent = state.spending.filter(filter);
+            
+            const income = periodIncome.reduce((a, b) => a + (parseFloat(b.amount)||0), 0);
+            const spent = periodSpent.reduce((a, b) => a + (parseFloat(b.amount)||0), 0);
             const sched = getSchedule(p.startStr, p.endStr);
             const bills = sched.reduce((a, b) => a + (parseFloat(b.actual ?? b.amount)||0), 0);
 
             if (i === offset) {
                 pIncome = income; pSpent = spent; pBills = bills;
+                
+                // Build Category Data for Current View
+                periodSpent.forEach(item => {
+                    const cat = item.category || 'Uncategorized';
+                    categoryBreakdown[cat] = (categoryBreakdown[cat] || 0) + parseFloat(item.amount);
+                });
             } else {
                 balance += (income - spent - bills);
             }
         }
-        return { income: pIncome, spent: pSpent, bills: pBills, startBalance: balance };
+        return { income: pIncome, spent: pSpent, bills: pBills, startBalance: balance, categoryBreakdown };
     }
 
     function render() {
@@ -285,6 +310,7 @@
                 <small style="text-transform:uppercase; font-weight:700; opacity:0.6">Projected Remaining</small>
                 <div style="font-size:36px; font-weight:800; color:var(--primary); margin:5px 0;">${format(projected)}</div>
             </div>
+            
             <div class="summary-grid">
                 <div class="summary-card"><small>Bills</small><br><strong style="color:var(--danger)">${format(t.bills)}</strong></div>
                 <div class="summary-card"><small>Spent</small><br><strong style="color:var(--danger)">${format(t.spent)}</strong></div>
@@ -293,6 +319,11 @@
             <div style="display:flex; gap:10px; padding: 15px 12px;">
                 <button class="btn" style="background:var(--danger); color:white; margin:0;" onclick="openSheet('spending')">-$ Spend</button>
                 <button class="btn" style="background:var(--secondary); color:white; margin:0;" onclick="openSheet('deposits')">+$ Income</button>
+            </div>
+            
+            <div class="panel" style="text-align:center; padding-bottom:30px;">
+                <h4 style="margin-top:0; opacity:0.8;">Spending by Category</h4>
+                <div style="height:170px; position:relative;"><canvas id="categoryChart"></canvas></div>
             </div>`;
 
         const bEdit = editingBillIndex !== null ? state.bills[editingBillIndex] : null;
@@ -368,11 +399,12 @@
                     <hr style="border:0; border-top:1px solid var(--border); margin:15px 0;">
                     ${list.map((item, i) => {
                         const globalIdx = state[key].indexOf(item);
+                        const catTag = key === 'spending' && item.category && item.category !== 'Uncategorized' ? `<br><span class="cat-tag">${item.category}</span>` : '';
                         return `
                         <div class="item-row">
-                            <div><strong style="font-size:16px">${item.name}</strong><br><small style="opacity:0.7">${item.date}</small></div>
+                            <div><strong style="font-size:16px">${item.name}</strong><br><small style="opacity:0.7">${item.date}</small>${catTag}</div>
                             <div style="text-align:right"><strong>${format(item.amount)}</strong><br>
-                            <span class="danger-link" onclick="deleteItem('${key}', ${globalIdx})">Delete</span></div>
+                            <span class="action-link" onclick="openSheet('${key}', ${globalIdx})">Edit</span> | <span class="danger-link" onclick="deleteItem('${key}', ${globalIdx})">Delete</span></div>
                         </div>`;
                     }).join('') || `<p style="opacity:0.6; text-align:center;">No ${key} logged this period.</p>`}
                 </div>`;
@@ -429,17 +461,45 @@
             </div>`;
 
         updateTabsUI();
-        if(activeIndex === 0) setTimeout(() => drawChart(t), 50);
+        if(activeIndex === 0) setTimeout(() => { drawChart(t); drawCategoryChart(t.categoryBreakdown); }, 50);
     }
 
-    window.openSheet = (type) => {
-        document.getElementById('sheet-title').innerText = type === 'spending' ? 'Add Expense' : 'Add Income';
-        document.getElementById('qDate').value = new Date().toISOString().split('T')[0];
+    // NEW: Handles both Adding and Editing past items
+    window.openSheet = (type, editIdx = null) => {
+        editingTransaction = { type, idx: editIdx };
+        document.getElementById('sheet-title').innerText = editIdx !== null ? 'Edit Transaction' : (type === 'spending' ? 'Add Expense' : 'Add Income');
+        
+        // Show category dropdown ONLY for spending
+        document.getElementById('qCategory').style.display = type === 'spending' ? 'block' : 'none';
+
+        if (editIdx !== null) {
+            const item = state[type][editIdx];
+            document.getElementById('qDesc').value = item.name;
+            document.getElementById('qAmt').value = item.amount;
+            document.getElementById('qDate').value = item.date;
+            document.getElementById('qCategory').value = item.category || 'Uncategorized';
+        } else {
+            document.getElementById('qDesc').value = '';
+            document.getElementById('qAmt').value = '';
+            document.getElementById('qDate').value = new Date().toISOString().split('T')[0];
+            document.getElementById('qCategory').value = 'Uncategorized';
+        }
+
         document.getElementById('sheet-save').onclick = () => {
-            const name = document.getElementById('qDesc').value || 'Quick Entry';
+            const name = document.getElementById('qDesc').value || 'Entry';
             const amount = parseFloat(document.getElementById('qAmt').value);
             const date = document.getElementById('qDate').value;
-            if (amount) { state[type].push({ name, amount, date }); save(); closeSheet(); }
+            const category = document.getElementById('qCategory').value;
+
+            if (amount) { 
+                if (editingTransaction.idx !== null) {
+                    state[type][editingTransaction.idx] = { name, amount, date, category };
+                } else {
+                    state[type].push({ name, amount, date, category }); 
+                }
+                save(); 
+                closeSheet(); 
+            }
         };
         document.getElementById('sheet-overlay').style.display = 'block';
         document.getElementById('bottom-sheet').classList.add('open');
@@ -449,6 +509,7 @@
         document.getElementById('bottom-sheet').classList.remove('open');
         document.getElementById('sheet-overlay').style.display = 'none';
         document.getElementById('qAmt').value = ''; document.getElementById('qDesc').value = '';
+        editingTransaction = null;
     };
 
     window.handleSaveBill = () => {
@@ -487,24 +548,17 @@
         setTimeout(() => document.getElementById('view-bills').scrollTo(0,0), 50); 
     };
     
-    // THE SMART-SYNC DELETE FUNCTION
     window.deleteItem = (type, idx) => { 
         if(confirm("Delete this entry?")) { 
             const item = state[type][idx];
-            
-            // If deleting a Goal transaction, sync it with the Goal's progress bar
             if (item && item.name && item.name.startsWith('Goal: ')) {
                 let gName = item.name.replace('Goal: ', '').replace(' (Withdrawal)', '');
                 let goal = state.goals.find(g => g.name === gName);
                 if (goal) {
-                    if (type === 'spending') {
-                        goal.current = Math.max(0, (goal.current || 0) - item.amount);
-                    } else if (type === 'deposits') {
-                        goal.current = (goal.current || 0) + item.amount;
-                    }
+                    if (type === 'spending') goal.current = Math.max(0, (goal.current || 0) - item.amount);
+                    else if (type === 'deposits') goal.current = (goal.current || 0) + item.amount;
                 }
             }
-            
             state[type].splice(idx, 1); 
             save(); 
         } 
@@ -515,7 +569,6 @@
         if(n && t) { state.goals.push({ name:n, target:t, current:0 }); save(); } 
     };
     
-    // NEW: Clean Goal Funds Management
     window.manageGoalFunds = (idx, action) => {
         const goal = state.goals[idx];
         const isAdd = action === 'add';
@@ -527,12 +580,10 @@
             
             if (isAdd) {
                 goal.current = (goal.current || 0) + amount;
-                state.spending.push({ name: `Goal: ${goal.name}`, amount: amount, date: today });
+                // Auto-tags goal funding as a category so it graphs cleanly
+                state.spending.push({ name: `Goal: ${goal.name}`, amount: amount, date: today, category: 'Goal Funding' });
             } else {
-                if (amount > (goal.current || 0)) {
-                    alert("You cannot withdraw more than is currently saved in this goal.");
-                    return;
-                }
+                if (amount > (goal.current || 0)) { alert("Cannot withdraw more than saved."); return; }
                 goal.current = (goal.current || 0) - amount;
                 state.deposits.push({ name: `Goal: ${goal.name} (Withdrawal)`, amount: amount, date: today });
             }
@@ -571,6 +622,30 @@
         myChart = new Chart(ctx, {
             type: 'doughnut', data: { labels: ['Bills', 'Spent', 'Remaining'], datasets: [{ data: [t.bills, t.spent, rem||1], backgroundColor: ['#ff7675', '#fdcb6e', '#55efc4'], borderWidth: 0 }] },
             options: { cutout: '80%', maintainAspectRatio: false, plugins: { legend: { display: false } } }
+        });
+    }
+
+    // NEW: Render the Category Breakdown Chart
+    function drawCategoryChart(catData) {
+        const ctx = document.getElementById('categoryChart'); if(!ctx) return;
+        if(catChart) catChart.destroy();
+        
+        const labels = Object.keys(catData);
+        const data = Object.values(catData);
+        
+        // Beautiful vibrant color palette for categories
+        const colors = ['#ff9ff3', '#feca57', '#ff6b6b', '#48dbfb', '#1dd1a1', '#5f27cd', '#54a0ff', '#c8d6e5'];
+        
+        catChart = new Chart(ctx, {
+            type: 'doughnut', 
+            data: { labels: labels, datasets: [{ data: data, backgroundColor: colors, borderWidth: 0 }] },
+            options: { 
+                cutout: '60%', 
+                maintainAspectRatio: false, 
+                plugins: { 
+                    legend: { display: true, position: 'right', labels: { color: state.darkMode ? '#f8fafc' : '#2d3436', boxWidth: 12, font: { size: 10 } } } 
+                } 
+            }
         });
     }
 
