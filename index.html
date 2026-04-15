@@ -10,70 +10,67 @@
             --primary: #74b9ff;
             --secondary: #55efc4;
             --danger: #ff7675;
+            --bg: #f1f2f6;
+            --panel: #ffffff;
+            --text: #2d3436;
+            --border: #dfe6e9;
+        }
+
+        body.dark {
             --bg: #0f172a;
             --panel: #1e293b;
             --text: #f8fafc;
             --border: #334155;
-            --input-bg: #0f172a;
         }
 
         body { 
             background-color: var(--bg); 
             color: var(--text); 
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
             margin: 0; 
+            transition: background 0.2s, color 0.2s;
             min-height: 100vh;
-            padding-bottom: 50px;
         }
 
-        #header { background: var(--primary); color: white; padding: 25px 20px; text-align: center; }
+        #main-content { padding-bottom: 50px; }
         
-        #tabs-container { 
-            display: flex; 
-            overflow-x: auto; 
-            background: var(--panel); 
-            padding: 12px; 
-            gap: 10px; 
-            border-bottom: 1px solid var(--border); 
-            position: sticky;
-            top: 0;
-            z-index: 100;
-            scrollbar-width: none;
-        }
-        #tabs-container::-webkit-scrollbar { display: none; }
-
         .panel { 
             background: var(--panel); 
             margin: 15px 12px; 
             padding: 20px; 
             border-radius: 16px; 
-            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
             border: 1px solid var(--border);
         }
 
         .field { 
             width: 100%; 
             padding: 14px; 
-            margin: 8px 0; 
+            margin: 10px 0; 
             border-radius: 10px; 
             border: 1px solid var(--border); 
-            background: var(--input-bg); 
+            background: var(--bg); 
             color: var(--text);
             box-sizing: border-box;
             font-size: 16px;
         }
 
         .tab-btn {
-            padding: 8px 18px; 
-            border-radius: 20px; 
+            padding: 10px 18px; 
+            border-radius: 25px; 
             border: 1px solid var(--border); 
             background: var(--panel); 
             color: var(--text); 
             white-space: nowrap;
             font-weight: 600;
+            cursor: pointer;
         }
 
-        .tab-btn.active { background: var(--primary); color: white; border-color: var(--primary); }
+        .tab-btn.active { 
+            background: var(--primary); 
+            color: white; 
+            border-color: var(--primary);
+        }
 
         .btn {
             width: 100%;
@@ -82,7 +79,6 @@
             border: none;
             font-weight: bold;
             font-size: 16px;
-            margin-top: 10px;
             cursor: pointer;
         }
 
@@ -94,7 +90,18 @@
             border-bottom: 1px solid var(--border);
         }
 
-        .action-link { color: var(--primary); font-size: 14px; font-weight: 600; cursor: pointer; }
+        .summary-card {
+            flex: 1;
+            background: var(--panel);
+            border-radius: 12px;
+            padding: 15px 10px;
+            text-align: center;
+            border: 1px solid var(--border);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        }
+
+        .action-link { color: var(--primary); font-size: 13px; font-weight: 600; cursor: pointer; }
+        .danger-link { color: var(--danger); font-size: 13px; font-weight: 600; cursor: pointer; }
     </style>
 </head>
 <body>
@@ -102,142 +109,220 @@
 <div id="app-root"></div>
 
 <script>
-    const STORAGE_KEY = 'budgetflow_data_v2';
-    
+    const STORAGE_KEY = 'budgetflow-v12-7';
+    const TABS = [
+        { id: 'dashboard', label: 'Dashboard' },
+        { id: 'bills', label: 'Bills' },
+        { id: 'schedule', label: 'Schedule' },
+        { id: 'spending', label: 'Spending' },
+        { id: 'deposits', label: 'Deposits' }
+    ];
+
     let state = JSON.parse(localStorage.getItem(STORAGE_KEY)) || {
-        userName: 'Manny',
-        darkMode: true,
+        userName: 'Baller',
+        darkMode: false,
+        settings: { initialBalance: 0, rollover: 0, anchorDate: '2026-03-29', periodDays: 14 },
         bills: [],
         spending: [],
-        deposits: [],
-        settings: { initialBalance: 56.85 }
+        deposits: []
     };
 
     let activeTab = 'dashboard';
+    let periodOffset = 0;
+    let myChart = null;
     let editingIndex = null;
 
-    function save() {
+    const save = () => {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
         render();
+    };
+
+    const format = (v) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(v || 0);
+
+    function getPeriod() {
+        const anchor = new Date(state.settings.anchorDate + 'T00:00:00');
+        const start = new Date(anchor);
+        start.setDate(anchor.getDate() + (periodOffset * state.settings.periodDays));
+        const end = new Date(start);
+        end.setDate(start.getDate() + (state.settings.periodDays - 1));
+        return {
+            startStr: start.toISOString().split('T')[0],
+            endStr: end.toISOString().split('T')[0],
+            label: `${start.toLocaleDateString('en-US', {month:'short', day:'numeric'})} - ${end.toLocaleDateString('en-US', {month:'short', day:'numeric'})}`
+        };
     }
 
     function render() {
         const root = document.getElementById('app-root');
+        document.body.classList.toggle('dark', state.darkMode);
+        const p = getPeriod();
+
         root.innerHTML = `
-            <div id="header">
+            <div id="header" style="background:var(--primary); color:white; padding:25px 20px; text-align:center;">
                 <h1 style="margin:0; font-size: 24px;">BudgetFlow</h1>
                 <div style="opacity:0.9; margin-top:4px;">Welcome, ${state.userName}</div>
             </div>
-            <div id="tabs-container">
-                ${['Dashboard', 'Bills', 'Spending', 'Deposits', 'Settings'].map(t => `
-                    <button class="tab-btn ${activeTab === t.toLowerCase() ? 'active' : ''}" 
-                            onclick="activeTab='${t.toLowerCase()}'; editingIndex=null; render()">
-                        ${t}
-                    </button>
-                `).join('')}
+            <div id="tabs-container" style="display:flex; overflow-x:auto; background:var(--panel); padding:12px; gap:10px; border-bottom:1px solid var(--border); scrollbar-width: none;">
+                ${TABS.map(t => `<button class="tab-btn ${activeTab === t.id ? 'active' : ''}" onclick="activeTab='${t.id}'; editingIndex=null; render()">${t.label}</button>`).join('')}
+                <button class="tab-btn ${activeTab === 'settings' ? 'active' : ''}" onclick="activeTab='settings'; editingIndex=null; render()">Settings</button>
             </div>
-            <div id="content">${renderTabContent()}</div>
+            <div id="main-content">
+                ${renderContent(activeTab, p)}
+            </div>
         `;
+
+        if (activeTab === 'dashboard') setTimeout(initChart, 50);
     }
 
-    function renderTabContent() {
-        if (activeTab === 'dashboard') {
-            const totalSpent = state.spending.reduce((acc, s) => acc + s.amount, 0);
-            const totalIncome = state.deposits.reduce((acc, d) => acc + d.amount, 0);
-            const balance = state.settings.initialBalance + totalIncome - totalSpent;
+    function renderContent(tab, p) {
+        const nav = `<div style="display:flex; justify-content:space-between; align-items:center; padding:15px 12px;">
+            <button class="tab-btn" style="padding:5px 12px" onclick="periodOffset--;render()">❮ Prev</button>
+            <strong style="font-size:1.1rem; color:var(--primary);">${p.label}</strong>
+            <button class="tab-btn" style="padding:5px 12px" onclick="periodOffset++;render()">Next ❯</button>
+        </div>`;
 
-            return `
+        if (tab === 'dashboard') {
+            const totalBills = state.bills.reduce((acc, b) => acc + (parseFloat(b.amount) || 0), 0);
+            const totalSpend = state.spending.reduce((acc, s) => acc + (parseFloat(s.amount) || 0), 0);
+            const totalIncome = state.deposits.reduce((acc, d) => acc + (parseFloat(d.amount) || 0), 0);
+            const projected = state.settings.initialBalance + state.settings.rollover + totalIncome - totalSpend - totalBills;
+
+            return nav + `
                 <div class="panel" style="text-align:center">
-                    <div style="font-size:14px; opacity:0.6; text-transform:uppercase; letter-spacing:1px;">Current Balance</div>
-                    <div style="font-size:36px; font-weight:800; color:var(--primary); margin:10px 0;">$${balance.toFixed(2)}</div>
+                    <div style="height:200px; margin-bottom:15px;"><canvas id="budgetChart"></canvas></div>
+                    <small style="text-transform:uppercase; letter-spacing:1px; font-weight:700; opacity:0.6">Projected Remaining</small>
+                    <div style="font-size:2.5rem; font-weight:800; color:var(--primary); margin:5px 0;">${format(projected)}</div>
                 </div>
-                <div class="panel">
-                    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; text-align:center;">
-                        <div><small>Spent</small><br><strong>$${totalSpent.toFixed(2)}</strong></div>
-                        <div><small>Income</small><br><strong>$${totalIncome.toFixed(2)}</strong></div>
+                
+                <div style="display:flex; gap:10px; padding: 0 12px;">
+                    <div class="summary-card">
+                        <div style="font-size:14px; margin-bottom:5px;">Bills</div>
+                        <strong style="color:var(--danger)">${format(totalBills)}</strong>
                     </div>
-                </div>
-            `;
+                    <div class="summary-card">
+                        <div style="font-size:14px; margin-bottom:5px;">Spend</div>
+                        <strong style="color:var(--danger)">${format(totalSpend)}</strong>
+                    </div>
+                    <div class="summary-card">
+                        <div style="font-size:14px; margin-bottom:5px;">Income</div>
+                        <strong style="color:var(--secondary)">${format(totalIncome)}</strong>
+                    </div>
+                </div>`;
         }
 
-        if (activeTab === 'bills') {
-            const billToEdit = editingIndex !== null ? state.bills[editingIndex] : null;
+        if (tab === 'bills') {
+            const bEdit = editingIndex !== null ? state.bills[editingIndex] : null;
             return `
                 <div class="panel">
-                    <h3>${billToEdit ? 'Edit Bill' : 'Add Recurring Bill'}</h3>
-                    <input id="bName" class="field" placeholder="Name" value="${billToEdit ? billToEdit.name : ''}">
-                    <input id="bAmount" type="number" class="field" placeholder="Amount" value="${billToEdit ? billToEdit.amount : ''}">
+                    <h3 style="margin-top:0">${bEdit ? 'Edit Bill' : 'Add Recurring Bill'}</h3>
+                    <input id="bName" class="field" placeholder="Name" value="${bEdit ? bEdit.name : ''}">
+                    <input id="bAmount" type="number" class="field" placeholder="Amount" value="${bEdit ? bEdit.amount : ''}">
+                    <input id="bDate" type="date" class="field" value="${bEdit ? (bEdit.startDate || '') : ''}">
                     <select id="bFreq" class="field">
-                        <option ${billToEdit?.freq === 'Monthly' ? 'selected' : ''}>Monthly</option>
-                        <option ${billToEdit?.freq === 'Weekly' ? 'selected' : ''}>Weekly</option>
-                        <option ${billToEdit?.freq === 'Bi-Weekly' ? 'selected' : ''}>Bi-Weekly</option>
+                        <option ${bEdit?.freq === 'Monthly' ? 'selected' : ''}>Monthly</option>
+                        <option ${bEdit?.freq === 'Weekly' ? 'selected' : ''}>Weekly</option>
+                        <option ${bEdit?.freq === 'Bi-Weekly' ? 'selected' : ''}>Bi-Weekly</option>
+                        <option ${bEdit?.freq === 'Custom' ? 'selected' : ''}>Custom</option>
                     </select>
-                    <button class="btn" style="background:var(--primary); color:white" onclick="saveBill()">
-                        ${billToEdit ? 'Update Bill' : 'Add Bill'}
+                    <button class="btn" style="background:var(--primary); color:white" onclick="handleSaveBill()">
+                        ${bEdit ? 'Update Bill' : 'Add Bill'}
                     </button>
+                    ${bEdit ? `<button class="btn" style="background:transparent; color:var(--text); margin-top:5px;" onclick="editingIndex=null;render()">Cancel</button>` : ''}
                 </div>
-                <div class="panel">
+                <div class="panel" style="padding: 10px 20px;">
                     ${state.bills.map((b, i) => `
                         <div class="item-row">
-                            <div><strong>${b.name}</strong><br><small>${b.freq}</small></div>
+                            <div>
+                                <strong style="font-size: 1.1rem;">${b.name}</strong><br>
+                                <small style="opacity:0.8">${b.freq} ${b.startDate ? 'from ' + b.startDate : ''}</small>
+                            </div>
                             <div style="text-align:right">
-                                <strong>$${b.amount.toFixed(2)}</strong><br>
-                                <span class="action-link" onclick="editingIndex=${i};render()">Edit</span> | 
-                                <span class="action-link" style="color:var(--danger)" onclick="deleteItem('bills', ${i})">Delete</span>
+                                <strong style="font-size: 1.1rem;">${format(b.amount)}</strong><br>
+                                <span class="action-link" onclick="startEdit(${i})">Edit</span> | 
+                                <span class="danger-link" onclick="deleteItem('bills', ${i})">Delete</span>
                             </div>
                         </div>
                     `).join('')}
-                </div>
-            `;
+                </div>`;
         }
 
-        if (activeTab === 'spending' || activeTab === 'deposits') {
-            const type = activeTab;
+        if (tab === 'spending' || tab === 'deposits') {
             return `
                 <div class="panel">
-                    <h3>Add ${type.charAt(0).toUpperCase() + type.slice(1)}</h3>
+                    <h3 style="margin-top:0">Add ${tab.charAt(0).toUpperCase() + tab.slice(1)}</h3>
                     <input id="transName" class="field" placeholder="Description">
                     <input id="transAmount" type="number" class="field" placeholder="Amount">
-                    <button class="btn" style="background:var(--primary); color:white" onclick="addTransaction('${type}')">Save Entry</button>
+                    <input id="transDate" type="date" class="field" value="${new Date().toISOString().split('T')[0]}">
+                    <button class="btn" style="background:var(--primary); color:white" onclick="addTransaction('${tab}')">Save Entry</button>
                 </div>
-                <div class="panel">
-                    ${state[type].map((t, i) => `
+                <div class="panel" style="padding: 10px 20px;">
+                    ${state[tab].map((t, i) => `
                         <div class="item-row">
-                            <div><strong>${t.name}</strong></div>
+                            <div>
+                                <strong style="font-size: 1.1rem;">${t.name}</strong><br>
+                                <small style="opacity:0.8">${t.date}</small>
+                            </div>
                             <div style="text-align:right">
-                                <strong>$${t.amount.toFixed(2)}</strong><br>
-                                <span class="action-link" style="color:var(--danger)" onclick="deleteItem('${type}', ${i})">Delete</span>
+                                <strong style="font-size: 1.1rem;">${format(t.amount)}</strong><br>
+                                <span class="danger-link" onclick="deleteItem('${tab}', ${i})">Delete</span>
                             </div>
                         </div>
                     `).join('')}
-                </div>
-            `;
+                </div>`;
         }
 
-        if (activeTab === 'settings') {
+        if (tab === 'settings') {
             return `
                 <div class="panel">
-                    <h3>Settings</h3>
-                    <label><small>Starting Balance</small></label>
-                    <input type="number" class="field" value="${state.settings.initialBalance}" onchange="state.settings.initialBalance=parseFloat(this.value);save()">
-                    <button class="btn" style="background:var(--border); color:var(--text); margin-top:20px;" onclick="clearData()">Reset All Data</button>
+                    <h3 style="margin-top:0">Preferences</h3>
+                    <button class="btn" style="background:transparent; border:1px solid var(--border); color:var(--text)" onclick="state.darkMode=!state.darkMode;save()">
+                        ${state.darkMode ? '☀️ Light' : '🌙 Dark'}
+                    </button>
                 </div>
-            `;
+                <div class="panel">
+                    <h3 style="margin-top:0">Pay Cycle</h3>
+                    <label><small>Starting Balance</small></label>
+                    <input type="number" class="field" value="${state.settings.initialBalance}" onchange="state.settings.initialBalance=parseFloat(this.value)||0;save()">
+                    
+                    <label><small>Rollover Amount</small></label>
+                    <input type="number" class="field" value="${state.settings.rollover}" onchange="state.settings.rollover=parseFloat(this.value)||0;save()">
+                    
+                    <label><small>Anchor Date</small></label>
+                    <input type="date" class="field" value="${state.settings.anchorDate}" onchange="state.settings.anchorDate=this.value;save()">
+                </div>
+                <div class="panel">
+                    <h3 style="margin-top:0">Data Management</h3>
+                    <button class="btn" style="background:transparent; border:1px solid var(--border); color:var(--text); margin-bottom:10px;">Export CSV</button>
+                    <button class="btn" style="background:transparent; border:1px solid var(--border); color:var(--text); margin-bottom:10px;" onclick="exportJSON()">Backup JSON</button>
+                    <button class="btn" style="background:transparent; border:1px solid var(--border); color:var(--text); margin-bottom:10px;">Import JSON</button>
+                    <button class="btn" style="background:var(--danger); color:white;" onclick="clearData()">Reset All</button>
+                </div>`;
         }
+
+        return nav + `<div class="panel"><p>Section <b>${tab}</b> is ready for future development.</p></div>`;
     }
 
-    // --- Logic ---
-    window.saveBill = () => {
+    // --- Actions ---
+    window.startEdit = (index) => {
+        editingIndex = index;
+        render();
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+
+    window.handleSaveBill = () => {
         const name = document.getElementById('bName').value;
         const amount = parseFloat(document.getElementById('bAmount').value);
+        const startDate = document.getElementById('bDate').value;
         const freq = document.getElementById('bFreq').value;
+        
         if (!name || isNaN(amount)) return;
 
+        const bill = { name, amount, startDate, freq };
         if (editingIndex !== null) {
-            state.bills[editingIndex] = { name, amount, freq };
+            state.bills[editingIndex] = bill;
             editingIndex = null;
         } else {
-            state.bills.push({ name, amount, freq });
+            state.bills.push(bill);
         }
         save();
     };
@@ -245,23 +330,61 @@
     window.addTransaction = (type) => {
         const name = document.getElementById('transName').value;
         const amount = parseFloat(document.getElementById('transAmount').value);
+        const date = document.getElementById('transDate').value || new Date().toISOString().split('T')[0];
+        
         if (!name || isNaN(amount)) return;
-        state[type].push({ name, amount, date: new Date().toISOString() });
+        state[type].push({ name, amount, date });
         save();
     };
 
     window.deleteItem = (type, index) => {
-        if(confirm("Delete this entry?")) {
-            state[type].splice(index, 1);
-            save();
-        }
+        if(confirm("Delete this entry?")) { state[type].splice(index, 1); save(); }
+    };
+
+    window.exportJSON = () => {
+        const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(state));
+        const dlAnchorElem = document.createElement('a');
+        dlAnchorElem.setAttribute("href", dataStr);
+        dlAnchorElem.setAttribute("download", "budgetflow_backup.json");
+        dlAnchorElem.click();
     };
 
     window.clearData = () => {
-        if(confirm("Warning: This will wipe all your entries. Proceed?")) {
+        if(confirm("Warning: This will completely wipe your app data. Proceed?")) {
             localStorage.removeItem(STORAGE_KEY);
             location.reload();
         }
+    };
+
+    function initChart() {
+        const ctx = document.getElementById('budgetChart')?.getContext('2d');
+        if (!ctx) return;
+        if (myChart) myChart.destroy();
+        
+        const totalBills = state.bills.reduce((acc, b) => acc + (parseFloat(b.amount) || 0), 0);
+        const totalSpend = state.spending.reduce((acc, s) => acc + (parseFloat(s.amount) || 0), 0);
+        const totalIncome = state.deposits.reduce((acc, d) => acc + (parseFloat(d.amount) || 0), 0);
+        
+        // Prevent empty chart breaking
+        const chartData = [totalBills, totalSpend, totalIncome];
+        if (chartData.every(val => val === 0)) chartData[2] = 1; // Fake 1 to show a gray/empty ring
+
+        myChart = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: ['Bills', 'Spending', 'Income'],
+                datasets: [{
+                    data: chartData,
+                    backgroundColor: ['#e74c3c', '#f39c12', '#2ecc71'], // Matches screenshot colors
+                    borderWidth: 0
+                }]
+            },
+            options: { 
+                maintainAspectRatio: false, 
+                cutout: '75%', // Thinner ring to match screenshot
+                plugins: { legend: { display: false }, tooltip: { enabled: false } } 
+            }
+        });
     }
 
     document.addEventListener('DOMContentLoaded', render);
