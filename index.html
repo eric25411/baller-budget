@@ -16,58 +16,108 @@
         body { 
             background-color: var(--bg); color: var(--text); 
             font-family: -apple-system, BlinkMacSystemFont, sans-serif;
-            margin: 0; min-height: 100vh; overflow-x: hidden;
+            margin: 0; min-height: 100vh; overflow: hidden; /* Prevent body scroll for swipe */
         }
-        #header { background: var(--primary); color: white; padding: 20px; text-align: center; }
+        #header { background: var(--primary); color: white; padding: 15px; text-align: center; }
         
-        /* Clean Navigation - No Snapping */
+        /* Non-Snapping Indicator Tabs */
         #tabs-container { 
             display: flex; overflow-x: auto; background: var(--panel); 
-            padding: 12px; gap: 8px; border-bottom: 1px solid var(--border);
-            position: sticky; top: 0; z-index: 100; -webkit-overflow-scrolling: touch;
+            padding: 10px; gap: 8px; border-bottom: 1px solid var(--border);
+            scrollbar-width: none;
         }
         #tabs-container::-webkit-scrollbar { display: none; }
+        .tab-btn {
+            padding: 6px 14px; border-radius: 20px; border: 1px solid var(--border); 
+            background: var(--panel); color: var(--text); white-space: nowrap;
+            font-weight: 600; font-size: 13px; transition: 0.2s;
+        }
+        .tab-btn.active { background: var(--primary); color: white; border-color: var(--primary); }
 
+        /* Swipeable View Container */
+        #swipe-wrapper {
+            display: flex; width: 600%; /* 6 tabs = 600% */
+            height: calc(100vh - 120px); transition: transform 0.3s ease-out;
+        }
+        .view-page { width: 16.666%; height: 100%; overflow-y: auto; box-sizing: border-box; }
+
+        /* UI Components */
         .panel { 
-            background: var(--panel); margin: 15px 12px; padding: 20px; 
+            background: var(--panel); margin: 12px; padding: 20px; 
             border-radius: 16px; border: 1px solid var(--border);
         }
         .field { 
-            width: 100%; padding: 14px; margin: 8px 0; border-radius: 10px; 
+            width: 100%; height: 44px; padding: 0 12px; margin: 8px 0; border-radius: 10px; 
             border: 1px solid var(--border); background: var(--bg); color: var(--text);
             box-sizing: border-box; font-size: 16px;
         }
-        .tab-btn {
-            padding: 8px 16px; border-radius: 20px; border: 1px solid var(--border); 
-            background: var(--panel); color: var(--text); white-space: nowrap;
-            font-weight: 600; cursor: pointer;
-        }
-        .tab-btn.active { background: var(--primary); color: white; border-color: var(--primary); }
-        .btn { width: 100%; padding: 15px; border-radius: 12px; border: none; font-weight: bold; cursor: pointer; margin-top: 10px; }
+        .btn { width: 100%; padding: 14px; border-radius: 12px; border: none; font-weight: bold; cursor: pointer; }
         
         .summary-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; padding: 0 12px; }
-        .summary-card { background: var(--panel); padding: 12px 5px; border-radius: 12px; text-align: center; border: 1px solid var(--border); }
-        .item-row { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--border); }
-        .chart-container { position: relative; height: 200px; width: 100%; display: flex; justify-content: center; }
+        .summary-card { background: var(--panel); padding: 10px 5px; border-radius: 12px; text-align: center; border: 1px solid var(--border); }
+        .chart-container { position: relative; height: 180px; width: 100%; display: flex; justify-content: center; margin-bottom: 10px; }
+
+        /* Quick Entry Bottom Sheet */
+        #bottom-sheet {
+            position: fixed; bottom: -100%; left: 0; width: 100%;
+            background: var(--panel); border-top: 1px solid var(--border);
+            border-radius: 20px 20px 0 0; padding: 20px; box-sizing: border-box;
+            transition: bottom 0.3s cubic-bezier(0.4, 0, 0.2, 1); z-index: 1000;
+            box-shadow: 0 -5px 20px rgba(0,0,0,0.1);
+        }
+        #bottom-sheet.open { bottom: 0; }
+        #sheet-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.5); display: none; z-index: 999;
+        }
     </style>
 </head>
 <body>
 
-<div id="app-root"></div>
+<div id="header">
+    <h1 style="margin:0; font-size: 20px;">BudgetFlow</h1>
+    <div id="welcome-text" style="opacity:0.8; font-size:13px;">Welcome, Baller</div>
+</div>
+
+<div id="tabs-container"></div>
+
+<div id="swipe-wrapper">
+    <div class="view-page" id="view-dashboard"></div>
+    <div class="view-page" id="view-bills"></div>
+    <div class="view-page" id="view-spending"></div>
+    <div class="view-page" id="view-deposits"></div>
+    <div class="view-page" id="view-goals"></div>
+    <div class="view-page" id="view-settings"></div>
+</div>
+
+<div id="sheet-overlay" onclick="closeSheet()"></div>
+<div id="bottom-sheet">
+    <h3 id="sheet-title" style="margin-top:0">Quick Add</h3>
+    <input id="qDesc" class="field" placeholder="Description (e.g. Lunch)">
+    <input id="qAmt" type="number" class="field" placeholder="Amount">
+    <input id="qDate" type="date" class="field">
+    <div style="display:flex; gap:10px; margin-top:10px;">
+        <button class="btn" style="background:var(--border)" onclick="closeSheet()">Cancel</button>
+        <button id="sheet-save" class="btn" style="background:var(--primary); color:white">Save</button>
+    </div>
+</div>
 
 <script>
-    const STORAGE_KEY = 'budgetflow_v13';
-    
+    const STORAGE_KEY = 'budgetflow_swipe_v1';
     let state = JSON.parse(localStorage.getItem(STORAGE_KEY)) || {
-        userName: 'Baller',
-        darkMode: false,
+        userName: 'Baller', darkMode: false,
         settings: { initialBalance: 56.85, anchorDate: '2026-03-05', periodDays: 14 },
         bills: [], spending: [], deposits: [], goals: []
     };
 
-    let activeTab = 'dashboard';
+    const TABS = ['Dashboard', 'Bills', 'Spending', 'Deposits', 'Goals', 'Settings'];
+    let activeIndex = 0;
     let periodOffset = 0;
     let myChart = null;
+
+    // Swipe Logic Variables
+    let startX = 0;
+    let isSwiping = false;
 
     const save = () => { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); render(); };
     const format = (v) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(v || 0);
@@ -81,134 +131,156 @@
         return { start, end };
     }
 
-    // Crucial: This calculates everything from the start of time up to the current visible period
-    function getTotalsForPeriod(offset) {
-        let runningBalance = state.settings.initialBalance;
-        
-        // Loop through all periods from the anchor up to the current offset to handle rollover
+    function getTotals(offset) {
+        let balance = state.settings.initialBalance;
         for (let i = 0; i <= offset; i++) {
             const p = getPeriod(i);
-            const filterFn = (item) => {
+            const filter = (item) => {
                 const d = new Date(item.date + 'T00:00:00');
                 return d >= p.start && d <= p.end;
             };
-
-            const periodIncome = state.deposits.filter(filterFn).reduce((acc, d) => acc + (parseFloat(d.amount)||0), 0);
-            const periodSpent = state.spending.filter(filterFn).reduce((acc, s) => acc + (parseFloat(s.amount)||0), 0);
-            const periodBills = state.bills.reduce((acc, b) => acc + (parseFloat(b.amount)||0), 0);
-
-            if (i === offset) {
-                return { income: periodIncome, spent: periodSpent, bills: periodBills, startBalance: runningBalance };
-            }
-            runningBalance += (periodIncome - periodSpent - periodBills);
+            const income = state.deposits.filter(filter).reduce((a, b) => a + (parseFloat(b.amount)||0), 0);
+            const spent = state.spending.filter(filter).reduce((a, b) => a + (parseFloat(b.amount)||0), 0);
+            const bills = state.bills.reduce((a, b) => a + (parseFloat(b.amount)||0), 0);
+            if (i === offset) return { income, spent, bills, startBalance: balance };
+            balance += (income - spent - bills);
         }
-        return { income: 0, spent: 0, bills: 0, startBalance: runningBalance };
     }
 
     function render() {
-        const root = document.getElementById('app-root');
         document.body.classList.toggle('dark', state.darkMode);
+        document.getElementById('welcome-text').innerText = `Welcome, ${state.userName}`;
+        
+        // Render Tabs
+        document.getElementById('tabs-container').innerHTML = TABS.map((t, i) => 
+            `<button class="tab-btn ${i === activeIndex ? 'active' : ''}" onclick="goToPage(${i})">${t}</button>`
+        ).join('');
+
+        // Apply Swipe Position
+        document.getElementById('swipe-wrapper').style.transform = `translateX(-${activeIndex * (100 / 6)}%)`;
+
         const p = getPeriod(periodOffset);
-        const pLabel = `${p.start.toLocaleDateString('en-US', {month:'short', day:'numeric'})} - ${p.end.toLocaleDateString('en-US', {month:'short', day:'numeric'})}`;
+        const pLabel = `${p.start.toLocaleDateString('en-US',{month:'short',day:'numeric'})} - ${p.end.toLocaleDateString('en-US',{month:'short',day:'numeric'})}`;
+        const nav = `<div style="display:flex; justify-content:space-between; align-items:center; padding:10px 12px;">
+            <button class="tab-btn" onclick="periodOffset--;render()">❮</button>
+            <strong>${pLabel}</strong>
+            <button class="tab-btn" onclick="periodOffset++;render()">❯</button>
+        </div>`;
 
-        root.innerHTML = `
-            <div id="header">
-                <h1 style="margin:0; font-size: 22px;">BudgetFlow</h1>
-                <div style="opacity:0.8; font-size:14px;">Welcome, ${state.userName}</div>
-            </div>
-            <div id="tabs-container">
-                ${['Dashboard', 'Bills', 'Spending', 'Deposits', 'Goals', 'Settings'].map(t => 
-                    `<button class="tab-btn ${activeTab === t.toLowerCase() ? 'active' : ''}" onclick="activeTab='${t.toLowerCase()}'; render()">${t}</button>`
-                ).join('')}
-            </div>
-            <div id="main-content">
-                <div style="display:flex; justify-content:space-between; align-items:center; padding:15px 12px;">
-                    <button class="tab-btn" onclick="periodOffset--;render()">❮ Prev</button>
-                    <strong style="color:var(--primary)">${pLabel}</strong>
-                    <button class="tab-btn" onclick="periodOffset++;render()">Next ❯</button>
-                </div>
-                ${renderTab(activeTab, p)}
-            </div>
-        `;
-        if (activeTab === 'dashboard') setTimeout(() => initChart(), 50);
-    }
-
-    function renderTab(tab, p) {
-        const totals = getTotalsForPeriod(periodOffset);
+        // Page: Dashboard
+        const totals = getTotals(periodOffset);
         const projected = totals.startBalance + totals.income - totals.spent - totals.bills;
+        document.getElementById('view-dashboard').innerHTML = nav + `
+            <div class="panel" style="text-align:center">
+                <div class="chart-container"><canvas id="budgetChart"></canvas></div>
+                <small>Projected Remaining</small>
+                <div style="font-size:28px; font-weight:800; color:var(--primary);">${format(projected)}</div>
+            </div>
+            <div class="summary-grid">
+                <div class="summary-card"><small>Bills</small><br><strong style="color:var(--danger)">${format(totals.bills)}</strong></div>
+                <div class="summary-card"><small>Spent</small><br><strong style="color:var(--danger)">${format(totals.spent)}</strong></div>
+                <div class="summary-card"><small>Income</small><br><strong style="color:var(--secondary)">${format(totals.income)}</strong></div>
+            </div>
+            <div class="panel" style="display:flex; gap:10px;">
+                <button class="btn" style="background:var(--danger); color:white" onclick="openSheet('spending')">-$ Spend</button>
+                <button class="btn" style="background:var(--secondary); color:white" onclick="openSheet('deposits')">+$ Income</button>
+            </div>`;
 
-        if (tab === 'dashboard') {
-            return `
-                <div class="panel" style="text-align:center">
-                    <div class="chart-container"><canvas id="budgetChart"></canvas></div>
-                    <small style="text-transform:uppercase; opacity:0.6; font-weight:bold">Projected Remaining</small>
-                    <div style="font-size:32px; font-weight:800; color:var(--primary);">${format(projected)}</div>
-                </div>
-                <div class="summary-grid">
-                    <div class="summary-card"><small>Bills</small><br><strong style="color:var(--danger)">${format(totals.bills)}</strong></div>
-                    <div class="summary-card"><small>Spend</small><br><strong style="color:var(--danger)">${format(totals.spent)}</strong></div>
-                    <div class="summary-card"><small>Income</small><br><strong style="color:var(--secondary)">${format(totals.income)}</strong></div>
-                </div>
-                <div class="panel" style="display:flex; gap:10px;">
-                    <button class="btn" style="background:var(--danger); color:white" onclick="quickAdd('spending')">-$ Spend</button>
-                    <button class="btn" style="background:var(--secondary); color:white" onclick="quickAdd('deposits')">+$ Income</button>
-                </div>`;
-        }
-
-        if (tab === 'settings') {
-            return `
-                <div class="panel">
-                    <h3>Preferences</h3>
-                    <button class="btn" onclick="state.darkMode=!state.darkMode;save()">${state.darkMode ? '☀️ Light Mode' : '🌙 Dark Mode'}</button>
-                    <label><small>User Name</small></label>
-                    <input class="field" value="${state.userName}" onchange="state.userName=this.value;save()">
-                </div>
-                <div class="panel">
-                    <h3>Pay Cycle</h3>
-                    <label><small>Starting Balance (Anchor)</small></label>
-                    <input type="number" class="field" value="${state.settings.initialBalance}" onchange="state.settings.initialBalance=parseFloat(this.value);save()">
-                    <label><small>Anchor Date</small></label>
-                    <input type="date" class="field" value="${state.settings.anchorDate}" onchange="state.settings.anchorDate=this.value;save()">
-                </div>
-                <div class="panel">
-                    <h3>Data Management</h3>
-                    <button class="btn" onclick="exportData()">Backup JSON</button>
-                    <button class="btn" onclick="importData()">Import JSON</button>
-                    <button class="btn" style="background:var(--danger); color:white" onclick="if(confirm('Clear all?')){state.bills=[];state.spending=[];state.deposits=[];save();}">Reset All Data</button>
-                </div>`;
-        }
-
-        // Generic List View for Bills, Spending, Deposits
-        const list = state[tab] || [];
-        return `
+        // Page: Settings
+        document.getElementById('view-settings').innerHTML = `
             <div class="panel">
-                <h3>Add ${tab.charAt(0).toUpperCase() + tab.slice(1)}</h3>
-                <input id="addName" class="field" placeholder="Description">
-                <input id="addAmt" type="number" class="field" placeholder="Amount">
-                <input id="addDate" type="date" class="field" value="${new Date().toISOString().split('T')[0]}">
-                <button class="btn" style="background:var(--primary); color:white" onclick="addItem('${tab}')">Add Item</button>
+                <h3>Profile & Logic</h3>
+                <label><small>Name</small></label><input class="field" value="${state.userName}" onchange="state.userName=this.value;save()">
+                <label><small>Starting Balance</small></label><input type="number" class="field" value="${state.settings.initialBalance}" onchange="state.settings.initialBalance=parseFloat(this.value);save()">
+                <label><small>Anchor Date</small></label><input type="date" class="field" value="${state.settings.anchorDate}" onchange="state.settings.anchorDate=this.value;save()">
+                <button class="btn" onclick="state.darkMode=!state.darkMode;save()">${state.darkMode ? 'Light' : 'Dark'} Mode</button>
             </div>
             <div class="panel">
-                ${list.length ? list.map((item, i) => `
-                    <div class="item-row">
-                        <div><strong>${item.name}</strong><br><small>${item.date || ''}</small></div>
-                        <div>${format(item.amount)} <span class="action-link" style="color:var(--danger); margin-left:10px" onclick="state['${tab}'].splice(${i},1);save()">Delete</span></div>
-                    </div>
-                `).join('') : '<p>No entries yet.</p>'}
+                <h3>Data</h3>
+                <button class="btn" onclick="exportData()">Backup JSON</button>
+                <button class="btn" style="margin-top:10px" onclick="importData()">Import JSON</button>
             </div>`;
+
+        // Simplified List Render for others
+        ['bills', 'spending', 'deposits', 'goals'].forEach(key => {
+            const list = state[key] || [];
+            document.getElementById(`view-${key}`).innerHTML = (key !== 'goals' ? nav : '') + `
+                <div class="panel">
+                    <h3>Add ${key}</h3>
+                    <input id="addN_${key}" class="field" placeholder="Description">
+                    <input id="addA_${key}" type="number" class="field" placeholder="Amount">
+                    <input id="addD_${key}" type="date" class="field" value="${new Date().toISOString().split('T')[0]}">
+                    <button class="btn" style="background:var(--primary); color:white" onclick="addItem('${key}')">Add</button>
+                </div>
+                <div class="panel">
+                    ${list.map((item, i) => `
+                        <div style="display:flex; justify-content:space-between; padding:10px 0; border-bottom:1px solid var(--border)">
+                            <div><strong>${item.name}</strong><br><small>${item.date || ''}</small></div>
+                            <div>${format(item.amount)} <span style="color:var(--danger); margin-left:10px" onclick="state.${key}.splice(${i},1);save()">✕</span></div>
+                        </div>`).join('')}
+                </div>`;
+        });
+
+        initChart(totals);
     }
 
-    window.addItem = (type) => {
-        const name = document.getElementById('addName').value;
-        const amount = parseFloat(document.getElementById('addAmt').value);
-        const date = document.getElementById('addDate').value;
-        if (name && amount) { state[type].push({ name, amount, date }); save(); }
+    function goToPage(index) { activeIndex = index; render(); }
+
+    // Swipe Event Listeners
+    window.addEventListener('touchstart', e => { startX = e.touches[0].clientX; isSwiping = true; });
+    window.addEventListener('touchmove', e => { if(!isSwiping) return; });
+    window.addEventListener('touchend', e => {
+        let diff = startX - e.changedTouches[0].clientX;
+        if (Math.abs(diff) > 50) {
+            if (diff > 0 && activeIndex < 5) activeIndex++;
+            else if (diff < 0 && activeIndex > 0) activeIndex--;
+            render();
+        }
+        isSwiping = false;
+    });
+
+    window.openSheet = (type) => {
+        document.getElementById('sheet-title').innerText = type === 'spending' ? 'Add Expense' : 'Add Income';
+        document.getElementById('qDate').value = new Date().toISOString().split('T')[0];
+        document.getElementById('sheet-save').onclick = () => {
+            const name = document.getElementById('qDesc').value || 'Quick Entry';
+            const amount = parseFloat(document.getElementById('qAmt').value);
+            const date = document.getElementById('qDate').value;
+            if (amount) { state[type].push({ name, amount, date }); save(); closeSheet(); }
+        };
+        document.getElementById('sheet-overlay').style.display = 'block';
+        document.getElementById('bottom-sheet').classList.add('open');
     };
 
-    window.quickAdd = (type) => {
-        const amt = prompt(`Enter ${type} amount:`);
-        if (amt) { state[type].push({ name: 'Quick Entry', amount: parseFloat(amt), date: new Date().toISOString().split('T')[0] }); save(); }
+    window.closeSheet = () => {
+        document.getElementById('bottom-sheet').classList.remove('open');
+        document.getElementById('sheet-overlay').style.display = 'none';
+        document.getElementById('qAmt').value = ''; document.getElementById('qDesc').value = '';
     };
+
+    window.addItem = (key) => {
+        const name = document.getElementById(`addN_${key}`).value;
+        const amount = parseFloat(document.getElementById(`addA_${key}`).value);
+        const date = document.getElementById(`addD_${key}`).value;
+        if (name && amount) { state[key].push({ name, amount, date }); save(); }
+    };
+
+    function initChart(t) {
+        const ctx = document.getElementById('budgetChart')?.getContext('2d');
+        if (!ctx) return;
+        if (myChart) myChart.destroy();
+        myChart = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: ['Bills', 'Spent', 'Remaining'],
+                datasets: [{ 
+                    data: [t.bills, t.spent, Math.max(0, t.startBalance + t.income - t.bills - t.spent)], 
+                    backgroundColor: ['#ff7675', '#fdcb6e', '#55efc4'], borderWidth: 0 
+                }]
+            },
+            options: { cutout: '80%', plugins: { legend: { display: false } }, maintainAspectRatio: false }
+        });
+    }
 
     window.exportData = () => {
         const blob = new Blob([JSON.stringify(state)], {type: 'application/json'});
@@ -219,8 +291,7 @@
     };
 
     window.importData = () => {
-        const input = document.createElement('input');
-        input.type = 'file';
+        const input = document.createElement('input'); input.type = 'file';
         input.onchange = e => {
             const reader = new FileReader();
             reader.onload = () => { state = JSON.parse(reader.result); save(); };
@@ -229,26 +300,7 @@
         input.click();
     };
 
-    function initChart() {
-        const ctx = document.getElementById('budgetChart')?.getContext('2d');
-        if (!ctx) return;
-        const t = getTotalsForPeriod(periodOffset);
-        if (myChart) myChart.destroy();
-        myChart = new Chart(ctx, {
-            type: 'doughnut',
-            data: {
-                labels: ['Bills', 'Spent', 'Remaining'],
-                datasets: [{ 
-                    data: [t.bills, t.spent, Math.max(0, t.startBalance + t.income - t.bills - t.spent)], 
-                    backgroundColor: ['#ff7675', '#fdcb6e', '#55efc4'], 
-                    borderWidth: 0 
-                }]
-            },
-            options: { cutout: '80%', plugins: { legend: { display: false } }, maintainAspectRatio: false }
-        });
-    }
-
-    document.addEventListener('DOMContentLoaded', render);
+    render();
 </script>
 </body>
 </html>
