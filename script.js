@@ -1,4 +1,4 @@
-const STORAGE_KEY = 'budgetflow-v12-3';
+const STORAGE_KEY = 'budgetflow-v12-4';
 
 const TABS = [
   { id: 'dashboard', label: 'Dashboard' },
@@ -27,6 +27,7 @@ style.textContent = `
     .panel { background: var(--card-bg); border-radius: 16px; padding: 15px; margin: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); border: 1px solid var(--border); }
     .btn { background: var(--primary); color: white; border: none; padding: 12px; border-radius: 10px; font-weight: 700; width: 100%; cursor: pointer; margin-top: 5px; }
     .btn-outline { background: transparent; border: 1px solid var(--primary); color: var(--primary); }
+    .btn-danger { background: var(--danger); color: white; }
     .field { width: 100%; padding: 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg); color: var(--text); box-sizing: border-box; margin-bottom: 8px; font-size: 1rem; }
     .flex-between { display: flex; justify-content: space-between; align-items: center; }
     .stat-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
@@ -39,12 +40,13 @@ document.head.appendChild(style);
 
 // --- APP INITIALIZATION ---
 const defaultData = { userName: 'Baller', darkMode: false, settings: { initialBalance: 0, rollover: 0, anchorDate: '2026-03-29', periodDays: 14 }, bills: [], spending: [], deposits: [], scheduleMeta: {}, goals: [] };
-let state = JSON.parse(localStorage.getItem(STORAGE_KEY)) || JSON.parse(localStorage.getItem('budgetflow-v12-2')) || JSON.parse(localStorage.getItem('budgetflow-v12-1')) || defaultData;
+let state = JSON.parse(localStorage.getItem(STORAGE_KEY)) || JSON.parse(localStorage.getItem('budgetflow-v12-3')) || defaultData;
 
 let activeTab = 'dashboard';
 let periodOffset = 0;
 let lastTabScroll = 0;
 let lastPageScroll = 0;
+let editingBillId = null;
 
 const save = () => { 
     lastPageScroll = window.scrollY;
@@ -87,6 +89,7 @@ function getSchedule() {
 }
 
 function render() {
+    if (state.darkMode) document.body.classList.add('dark'); else document.body.classList.remove('dark');
     const tabsContainer = document.getElementById('tabs-container');
     if (tabsContainer) lastTabScroll = tabsContainer.scrollLeft;
 
@@ -152,22 +155,44 @@ function render() {
         const list = state[activeTab].filter(x => x.date >= p.startStr && x.date <= p.endStr);
         content.innerHTML = periodNav + `
             <div class="panel"><h3>Add ${activeTab}</h3><input id="tx-n" placeholder="Note" class="field"><input id="tx-a" type="number" placeholder="Amount" class="field"><input id="tx-d" type="date" class="field" value="${p.startStr}"><button class="btn" onclick="addTx('${activeTab}')">Save Entry</button></div>
-            ${list.map(x => `<div class="panel flex-between"><div><strong>${x.name}</strong><br><small>${x.date}</small></div><div style="font-weight:bold">${format(x.amount)}</div></div>`).join('')}`;
+            ${list.sort((a,b) => b.date.localeCompare(a.date)).map((x, i) => `
+                <div class="panel flex-between">
+                    <div><strong>${x.name}</strong><br><small>${x.date}</small></div>
+                    <div class="flex-between" style="gap:10px"><span style="font-weight:bold">${format(x.amount)}</span><button class="mini-btn" style="color:var(--danger)" onclick="state['${activeTab}'].splice(state['${activeTab}'].indexOf(x),1);save()">✕</button></div>
+                </div>`).join('')}`;
     } else if (activeTab === 'bills') {
+        const bEdit = state.bills.find(b => b.id === editingBillId);
         content.innerHTML = `
-            <div class="panel"><h3>New Bill</h3><input id="bn" placeholder="Name" class="field"><input id="ba" type="number" placeholder="Amount" class="field"><input id="bd" type="date" class="field">
-            <select id="bf" class="field" onchange="document.getElementById('cw').style.display = this.value === 'Custom' ? 'block' : 'none'"><option value="Monthly">Monthly</option><option value="Weekly">Weekly</option><option value="Bi-Weekly">Bi-Weekly</option><option value="Custom">Custom Days</option></select>
-            <div id="cw" style="display:none"><input id="bc" type="number" placeholder="Every X Days" class="field"></div><button class="btn" onclick="addBill()">Add Bill</button></div>
-            ${state.bills.map((b, i) => `<div class="panel flex-between"><div><strong>${b.name}</strong><br><small>${format(b.amount)} • ${b.freq}</small></div><button class="mini-btn" style="color:var(--danger)" onclick="state.bills.splice(${i},1);save()">✕</button></div>`).join('')}`;
+            <div class="panel">
+                <h3>${bEdit ? 'Edit Bill' : 'New Bill'}</h3>
+                <input id="bn" placeholder="Name" class="field" value="${bEdit ? bEdit.name : ''}">
+                <input id="ba" type="number" placeholder="Amount" class="field" value="${bEdit ? bEdit.amount : ''}">
+                <input id="bd" type="date" class="field" value="${bEdit ? bEdit.date : ''}">
+                <select id="bf" class="field" onchange="document.getElementById('cw').style.display = this.value === 'Custom' ? 'block' : 'none'">
+                    <option value="Monthly" ${bEdit?.freq === 'Monthly' ? 'selected' : ''}>Monthly</option>
+                    <option value="Weekly" ${bEdit?.freq === 'Weekly' ? 'selected' : ''}>Weekly</option>
+                    <option value="Bi-Weekly" ${bEdit?.freq === 'Bi-Weekly' ? 'selected' : ''}>Bi-Weekly</option>
+                    <option value="Custom" ${bEdit?.freq === 'Custom' ? 'selected' : ''}>Custom Days</option>
+                </select>
+                <div id="cw" style="display:${bEdit?.freq === 'Custom' ? 'block' : 'none'}"><input id="bc" type="number" placeholder="Every X Days" class="field" value="${bEdit?.customDays || ''}"></div>
+                <button class="btn" onclick="addBill()">${bEdit ? 'Update Bill' : 'Add Bill'}</button>
+                ${bEdit ? `<button class="btn btn-outline" style="margin-top:10px" onclick="editingBillId=null;render()">Cancel</button>` : ''}
+            </div>
+            ${state.bills.map((b) => `<div class="panel flex-between" onclick="editingBillId='${b.id}';render()" style="cursor:pointer"><div><strong>${b.name}</strong><br><small>${format(b.amount)} • ${b.freq}</small></div><button class="mini-btn" style="color:var(--danger)" onclick="event.stopPropagation();state.bills=state.bills.filter(x=>x.id!=='${b.id}');save()">✕</button></div>`).join('')}`;
     } else if (activeTab === 'settings') {
         content.innerHTML = `
             <div class="panel"><h3>User</h3><input class="field" value="${state.userName}" onchange="state.userName=this.value;save()"></div>
+            <div class="panel"><h3>Preferences</h3><button class="btn btn-outline" onclick="state.darkMode=!state.darkMode;save()">${state.darkMode ? '☀️ Switch to Light' : '🌙 Switch to Dark'}</button></div>
             <div class="panel"><h3>Pay Cycle</h3>
                 <label><small>Starting Balance</small></label><input type="number" class="field" value="${state.settings.initialBalance}" onchange="state.settings.initialBalance=parseFloat(this.value);save()">
                 <label><small>Manual Rollover Amount</small></label><input type="number" class="field" value="${state.settings.rollover || 0}" onchange="state.settings.rollover=parseFloat(this.value);save()">
                 <label><small>Anchor Date</small></label><input type="date" class="field" value="${state.settings.anchorDate}" onchange="state.settings.anchorDate=this.value;save()">
             </div>
-            <div class="panel"><button class="btn btn-outline" onclick="exportJSON()">Backup JSON</button><button class="btn btn-outline" style="margin-top:10px" onclick="importJSON()">Import JSON</button></div>`;
+            <div class="panel">
+                <button class="btn btn-outline" onclick="exportJSON()">Backup JSON</button>
+                <button class="btn btn-outline" style="margin:10px 0" onclick="importJSON()">Import JSON</button>
+                <button class="btn btn-danger" onclick="if(confirm('WIPE ALL DATA?')) {state=defaultData;save();}">Reset All Data</button>
+            </div>`;
     }
 }
 
@@ -178,7 +203,18 @@ window.togglePaid = (key) => { state.scheduleMeta[key] = state.scheduleMeta[key]
 window.updateActual = (key, current) => { const val = prompt("Actual amount paid:", current); if (val) { state.scheduleMeta[key] = state.scheduleMeta[key] || {}; state.scheduleMeta[key].actual = parseFloat(val); state.scheduleMeta[key].paid = true; save(); } };
 window.quickAdd = (type) => { const note = prompt("Description:"); if (!note) return; const amt = parseFloat(prompt("Amount:")); if (isNaN(amt)) return; state[type].push({ name: note, amount: amt, date: new Date().toISOString().split('T')[0] }); save(); };
 window.addTx = (type) => { const n = document.getElementById('tx-n').value, a = parseFloat(document.getElementById('tx-a').value), d = document.getElementById('tx-d').value; if(n && a && d) { state[type].push({ name: n, amount: a, date: d }); save(); } };
-window.addBill = () => { const n = document.getElementById('bn').value, a = parseFloat(document.getElementById('ba').value), d = document.getElementById('bd').value, f = document.getElementById('bf').value, c = document.getElementById('bc')?.value || 0; if(n && a && d) { state.bills.push({ id: Math.random().toString(36).substr(2,9), name: n, amount: a, date: d, freq: f, customDays: c }); save(); } };
+window.addBill = () => { 
+    const n = document.getElementById('bn').value, a = parseFloat(document.getElementById('ba').value), d = document.getElementById('bd').value, f = document.getElementById('bf').value, c = document.getElementById('bc')?.value || 0; 
+    if(!n || isNaN(a) || !d) return;
+    if(editingBillId) {
+        const b = state.bills.find(x => x.id === editingBillId);
+        Object.assign(b, { name: n, amount: a, date: d, freq: f, customDays: c });
+        editingBillId = null;
+    } else {
+        state.bills.push({ id: Math.random().toString(36).substr(2,9), name: n, amount: a, date: d, freq: f, customDays: c });
+    }
+    save(); 
+};
 window.exportJSON = () => { const blob = new Blob([JSON.stringify(state)], { type: 'application/json' }); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'budget_backup.json'; a.click(); };
 window.importJSON = () => { const json = prompt("Paste JSON:"); if (json) { try { state = JSON.parse(json); save(); } catch(e) { alert("Invalid data"); } } };
 
