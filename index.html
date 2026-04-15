@@ -12,10 +12,24 @@
         body { background-color: var(--bg); color: var(--text); font-family: -apple-system, sans-serif; margin: 0; padding-bottom: 60px; transition: background 0.3s; }
         
         #header { background: var(--primary); color: white; padding: 20px 15px; text-align: center; }
-        #tabs-container { display: flex; overflow-x: auto; background: var(--panel); padding: 12px; gap: 10px; border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 100; scrollbar-width: none; }
+        
+        /* Fixed Tab Container to prevent snapping */
+        #tabs-container { 
+            display: flex; 
+            overflow-x: auto; 
+            background: var(--panel); 
+            padding: 12px; 
+            gap: 10px; 
+            border-bottom: 1px solid var(--border); 
+            position: sticky; 
+            top: 0; 
+            z-index: 100; 
+            scrollbar-width: none;
+            -webkit-overflow-scrolling: touch;
+        }
         #tabs-container::-webkit-scrollbar { display: none; }
         
-        .tab-btn { padding: 10px 18px; border-radius: 25px; border: 1px solid var(--border); background: var(--panel); color: var(--text); font-weight: 600; cursor: pointer; white-space: nowrap; font-size: 0.9rem; }
+        .tab-btn { padding: 10px 18px; border-radius: 25px; border: 1px solid var(--border); background: var(--panel); color: var(--text); font-weight: 600; cursor: pointer; white-space: nowrap; font-size: 0.9rem; flex-shrink: 0; }
         .tab-btn.active { background: var(--primary); color: white; border-color: var(--primary); }
         
         .panel { background: var(--panel); margin: 12px; padding: 15px; border-radius: 16px; border: 1px solid var(--border); box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
@@ -23,7 +37,7 @@
         .stat-card { background: var(--panel); padding: 10px 5px; border-radius: 12px; text-align: center; border: 1px solid var(--border); }
         .stat-card small { font-size: 0.7rem; text-transform: uppercase; opacity: 0.7; font-weight: bold; }
         
-        .field { width: 100%; padding: 12px; margin: 8px 0; border-radius: 10px; border: 1px solid var(--border); background: var(--bg); color: var(--text); box-sizing: border-box; font-size: 16px; appearance: none; -webkit-appearance: none; }
+        .field { width: 100%; padding: 12px; margin: 8px 0; border-radius: 10px; border: 1px solid var(--border); background: var(--bg); color: var(--text); box-sizing: border-box; font-size: 16px; }
         .btn { width: 100%; padding: 12px; border-radius: 10px; border: none; font-weight: bold; cursor: pointer; margin-top: 5px; }
         
         .flex-between { display: flex; justify-content: space-between; align-items: center; }
@@ -51,6 +65,12 @@
 
     const save = () => { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); render(); };
     const format = (v) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(v || 0);
+
+    function changeTab(tabName) {
+        activeTab = tabName;
+        window.scrollTo(0,0); // Prevents page jumping/snapping
+        render();
+    }
 
     function getPeriod() {
         const anchor = new Date(state.settings.anchorDate + 'T00:00:00');
@@ -91,13 +111,13 @@
         document.body.className = state.darkMode ? 'dark' : '';
         const p = getPeriod();
 
-        // CUMULATIVE MATH: Totals up to the END of this period
+        // Calculate Cumulative Balance
         const totalBillsToDate = getSchedule().filter(r => r.date <= p.endStr).reduce((s, r) => s + (r.actual ?? r.amount), 0);
         const totalSpentToDate = state.spending.filter(s => s.date <= p.endStr).reduce((s, x) => s + x.amount, 0);
         const totalIncomeToDate = state.deposits.filter(d => d.date <= p.endStr).reduce((s, x) => s + x.amount, 0);
         const runningBalance = (state.settings.initialBalance + state.settings.rollover + totalIncomeToDate) - (totalBillsToDate + totalSpentToDate);
 
-        // PERIOD SPECIFIC MATH (For the 3 small cards)
+        // Period Totals
         const pBills = getSchedule().filter(r => r.date >= p.startStr && r.date <= p.endStr).reduce((s, r) => s + (r.actual ?? r.amount), 0);
         const pSpent = state.spending.filter(s => s.date >= p.startStr && s.date <= p.endStr).reduce((s, x) => s + x.amount, 0);
         const pIncome = state.deposits.filter(d => d.date >= p.startStr && d.date <= p.endStr).reduce((s, x) => s + x.amount, 0);
@@ -108,7 +128,7 @@
                 <div style="opacity:0.8; font-size:0.9rem;">Welcome, ${state.userName}</div>
             </div>
             <div id="tabs-container">
-                ${TABS.map(t => `<button class="tab-btn ${activeTab === t ? 'active' : ''}" onclick="activeTab='${t}';render()">${t}</button>`).join('')}
+                ${TABS.map(t => `<button class="tab-btn ${activeTab === t ? 'active' : ''}" onclick="changeTab('${t}')">${t}</button>`).join('')}
             </div>
             <div id="main-content">
                 ${renderContent(p, pBills, pSpent, pIncome, runningBalance)}
@@ -141,7 +161,7 @@
         if (activeTab === 'Bills') {
             return `<div class="panel">
                 <h3 style="margin-top:0">Recurring Bills</h3>
-                <input id="bn" class="field" placeholder="Name (e.g. Rent)">
+                <input id="bn" class="field" placeholder="Name">
                 <input id="ba" type="number" class="field" placeholder="Amount">
                 <input id="bd" type="date" class="field">
                 <select id="bf" class="field"><option>Monthly</option><option>Bi-Weekly</option><option>Weekly</option></select>
@@ -167,8 +187,7 @@
 
         if (activeTab === 'Spending' || activeTab === 'Deposits') {
             const list = state[activeTab.toLowerCase()].filter(x => x.date >= p.startStr && x.date <= p.endStr);
-            return nav + `
-            <div class="panel">
+            return nav + `<div class="panel">
                 <h3 style="margin-top:0">Add ${activeTab}</h3>
                 <input id="en" class="field" placeholder="Description">
                 <input id="ea" type="number" class="field" placeholder="Amount">
@@ -181,16 +200,17 @@
 
         if (activeTab === 'Settings') {
             return `<div class="panel">
-                <h3 style="margin-top:0">User Settings</h3>
+                <h3 style="margin-top:0">Profile & Theme</h3>
                 <input class="field" value="${state.userName}" onchange="state.userName=this.value;save()">
                 <button class="btn" onclick="state.darkMode=!state.darkMode;save()">${state.darkMode ? '☀️ Light' : '🌙 Dark'} Mode</button>
                 <hr style="border:0; border-top:1px solid var(--border); margin:20px 0;">
-                <label><small>Initial Starting Balance</small></label><input type="number" class="field" value="${state.settings.initialBalance}" onchange="state.settings.initialBalance=parseFloat(this.value);save()">
+                <label><small>Starting Balance</small></label><input type="number" class="field" value="${state.settings.initialBalance}" onchange="state.settings.initialBalance=parseFloat(this.value);save()">
                 <label><small>Manual Rollover</small></label><input type="number" class="field" value="${state.settings.rollover}" onchange="state.settings.rollover=parseFloat(this.value);save()">
-                <label><small>Pay Period Anchor Date</small></label><input type="date" class="field" value="${state.settings.anchorDate}" onchange="state.settings.anchorDate=this.value;save()">
+                <label><small>Anchor Date</small></label><input type="date" class="field" value="${state.settings.anchorDate}" onchange="state.settings.anchorDate=this.value;save()">
                 <hr style="border:0; border-top:1px solid var(--border); margin:20px 0;">
                 <button class="btn" style="background:var(--primary); color:white" onclick="exportJSON()">Backup Data (JSON)</button>
-                <button class="btn" style="background:var(--border); margin-top:10px" onclick="importJSON()">Restore Data</button>
+                <button class="btn" style="background:var(--border); margin:10px 0" onclick="importJSON()">Restore Data</button>
+                <button class="btn" style="background:var(--danger); color:white" onclick="resetAll()">Reset All Data</button>
             </div>`;
         }
     }
@@ -232,7 +252,7 @@
         const blob = new Blob([JSON.stringify(state)], { type: 'application/json' });
         const a = document.createElement('a');
         a.href = URL.createObjectURL(blob);
-        a.download = `budgetflow_backup_${new Date().toISOString().split('T')[0]}.json`;
+        a.download = `budgetflow_backup.json`;
         a.click();
     };
 
@@ -244,13 +264,20 @@
         }
     };
 
+    window.resetAll = () => {
+        if(confirm("Are you sure? This will delete all bills and history!")) {
+            localStorage.removeItem(STORAGE_KEY);
+            location.reload();
+        }
+    };
+
     function initChart(b, s, i) {
         const ctx = document.getElementById('budgetChart')?.getContext('2d');
         if (!ctx) return;
         if (myChart) myChart.destroy();
         myChart = new Chart(ctx, {
             type: 'doughnut',
-            data: { labels: ['Bills', 'Spent', 'Income'], datasets: [{ data: [b, s, i || 1], backgroundColor: ['#ff7675', '#fdcb6e', '#55efc4'], borderWidth: 0 }] },
+            data: { labels: ['Bills', 'Spent', 'Income'], datasets: [{ data: [b, s, i || 0.1], backgroundColor: ['#ff7675', '#fdcb6e', '#55efc4'], borderWidth: 0 }] },
             options: { maintainAspectRatio: false, plugins: { legend: { display: false } } }
         });
     }
