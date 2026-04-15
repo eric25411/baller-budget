@@ -366,12 +366,15 @@
                         <button class="btn" style="width:auto; margin:0; padding:8px 15px; background:var(--primary); color:white" onclick="openSheet('${key}')">Add +</button>
                     </div>
                     <hr style="border:0; border-top:1px solid var(--border); margin:15px 0;">
-                    ${list.map((item, i) => `
+                    ${list.map((item, i) => {
+                        const globalIdx = state[key].indexOf(item);
+                        return `
                         <div class="item-row">
                             <div><strong style="font-size:16px">${item.name}</strong><br><small style="opacity:0.7">${item.date}</small></div>
                             <div style="text-align:right"><strong>${format(item.amount)}</strong><br>
-                            <span class="danger-link" onclick="deleteItem('${key}', ${state[key].indexOf(item)})">Delete</span></div>
-                        </div>`).join('') || `<p style="opacity:0.6; text-align:center;">No ${key} logged this period.</p>`}
+                            <span class="danger-link" onclick="deleteItem('${key}', ${globalIdx})">Delete</span></div>
+                        </div>`;
+                    }).join('') || `<p style="opacity:0.6; text-align:center;">No ${key} logged this period.</p>`}
                 </div>`;
         });
 
@@ -389,11 +392,12 @@
                     return `<div class="temp-bill-box" style="margin-bottom:15px; margin-top:0;">
                         <div style="display:flex; justify-content:space-between; margin-bottom:5px;"><strong>${g.name}</strong> <span>${format(current)} / ${format(g.target)}</span></div>
                         <div class="progress-bar" style="background:var(--bg); height:12px; border-radius:10px; margin:10px 0; border:1px solid var(--border); overflow:hidden;"><div class="progress-fill" style="background:var(--secondary); height:100%; width:${perc}%"></div></div>
-                        <div style="display:flex; justify-content:space-between; align-items:center; font-size:13px; margin-top:10px;">
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:10px;">
                             <span style="color:var(--primary); font-weight:bold; font-size: 15px;">${perc.toFixed(0)}%</span>
-                            <div>
-                                <span class="action-link" style="margin-right:15px; font-size:14px;" onclick="addGoalFunds(${i})">+ Add Funds</span>
-                                <span class="danger-link" onclick="deleteItem('goals', ${i})">Delete</span>
+                            <div style="display:flex; gap:12px; align-items:center;">
+                                <span class="action-link" style="font-size:14px;" onclick="manageGoalFunds(${i}, 'add')">+ Add</span>
+                                <span class="action-link" style="font-size:14px; color:var(--text);" onclick="manageGoalFunds(${i}, 'withdraw')">- Withdraw</span>
+                                <span class="danger-link" style="font-size:14px;" onclick="deleteItem('goals', ${i})">Delete</span>
                             </div>
                         </div>
                     </div>`; 
@@ -483,28 +487,55 @@
         setTimeout(() => document.getElementById('view-bills').scrollTo(0,0), 50); 
     };
     
-    window.deleteItem = (type, idx) => { if(confirm("Delete?")) { state[type].splice(idx, 1); save(); } };
+    // THE SMART-SYNC DELETE FUNCTION
+    window.deleteItem = (type, idx) => { 
+        if(confirm("Delete this entry?")) { 
+            const item = state[type][idx];
+            
+            // If deleting a Goal transaction, sync it with the Goal's progress bar
+            if (item && item.name && item.name.startsWith('Goal: ')) {
+                let gName = item.name.replace('Goal: ', '').replace(' (Withdrawal)', '');
+                let goal = state.goals.find(g => g.name === gName);
+                if (goal) {
+                    if (type === 'spending') {
+                        goal.current = Math.max(0, (goal.current || 0) - item.amount);
+                    } else if (type === 'deposits') {
+                        goal.current = (goal.current || 0) + item.amount;
+                    }
+                }
+            }
+            
+            state[type].splice(idx, 1); 
+            save(); 
+        } 
+    };
     
     window.addGoal = () => { 
         const n = document.getElementById('gName').value, t = parseFloat(document.getElementById('gTarget').value); 
         if(n && t) { state.goals.push({ name:n, target:t, current:0 }); save(); } 
     };
     
-    // NEW: Auto-add to spending/deposits when managing goal funds
-    window.addGoalFunds = (idx) => {
+    // NEW: Clean Goal Funds Management
+    window.manageGoalFunds = (idx, action) => {
         const goal = state.goals[idx];
-        const amountStr = prompt(`Add funds to ${goal.name} (use negative number to withdraw):`);
+        const isAdd = action === 'add';
+        const amountStr = prompt(`Enter amount to ${isAdd ? 'add to' : 'withdraw from'} ${goal.name}:`);
         const amount = parseFloat(amountStr);
-        if(!isNaN(amount) && amount !== 0) {
-            goal.current = (goal.current || 0) + amount;
-            
+        
+        if(!isNaN(amount) && amount > 0) {
             const today = new Date().toISOString().split('T')[0];
-            if (amount > 0) {
+            
+            if (isAdd) {
+                goal.current = (goal.current || 0) + amount;
                 state.spending.push({ name: `Goal: ${goal.name}`, amount: amount, date: today });
             } else {
-                state.deposits.push({ name: `Goal: ${goal.name} (Withdrawal)`, amount: Math.abs(amount), date: today });
+                if (amount > (goal.current || 0)) {
+                    alert("You cannot withdraw more than is currently saved in this goal.");
+                    return;
+                }
+                goal.current = (goal.current || 0) - amount;
+                state.deposits.push({ name: `Goal: ${goal.name} (Withdrawal)`, amount: amount, date: today });
             }
-            
             save();
         }
     };
