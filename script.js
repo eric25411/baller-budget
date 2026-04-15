@@ -1,4 +1,4 @@
-const STORAGE_KEY = 'budgetflow-v12-5';
+const STORAGE_KEY = 'budgetflow-v12-6';
 
 // Load Chart.js CDN
 const chartScript = document.createElement('script');
@@ -21,30 +21,48 @@ style.textContent = `
     :root { --primary: #7BAFD4; --secondary: #2ecc71; --danger: #e74c3c; --bg: #f4f6f9; --card-bg: #ffffff; --text: #333; --border: #eee; }
     body.dark { --bg: #12171e; --card-bg: #1e252e; --text: #e0e0e0; --border: #2d3743; }
     body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg); margin: 0; padding-bottom: 80px; color: var(--text); transition: background 0.3s; }
+    
     #header { background: var(--primary); color: white; padding: 20px 15px 10px; text-align: center; }
     #header h1 { margin: 0; font-size: 1.5rem; font-weight: 800; }
     #greeting { font-size: 0.9rem; margin-top: 5px; opacity: 0.9; }
+    
     #tabs-container { overflow-x: auto; white-space: nowrap; padding: 12px; background: var(--card-bg); border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 100; display: flex; gap: 8px; }
     #tabs-container::-webkit-scrollbar { display: none; }
+    
     .tab-btn { padding: 8px 16px; border-radius: 20px; border: none; background: var(--border); color: var(--text); cursor: pointer; font-weight: 600; font-size: 0.85rem; flex-shrink: 0; }
     .tab-btn.active { background: var(--primary); color: white; }
+    
     .nav-bar { display: flex; justify-content: space-between; align-items: center; padding: 10px 15px; background: var(--card-bg); margin-bottom: 5px; border-bottom: 1px solid var(--border); }
     .panel { background: var(--card-bg); border-radius: 16px; padding: 15px; margin: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); border: 1px solid var(--border); }
+    
+    /* INPUT FIX FOR DARK MODE TYPING */
+    .field { 
+        width: 100%; padding: 12px; border-radius: 8px; border: 1px solid var(--border); 
+        background-color: var(--bg) !important; color: var(--text) !important; 
+        -webkit-appearance: none; appearance: none;
+        box-sizing: border-box; margin-bottom: 8px; font-size: 1rem; 
+    }
+    
     .btn { background: var(--primary); color: white; border: none; padding: 12px; border-radius: 10px; font-weight: 700; width: 100%; cursor: pointer; margin-top: 5px; }
     .btn-outline { background: transparent; border: 1px solid var(--primary); color: var(--primary); }
     .btn-danger { background: var(--danger); color: white; }
-    .field { width: 100%; padding: 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg); color: var(--text); box-sizing: border-box; margin-bottom: 8px; font-size: 1rem; }
+    
     .flex-between { display: flex; justify-content: space-between; align-items: center; }
     .stat-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
     .mini-btn { padding: 6px 12px; border-radius: 8px; border: none; font-size: 0.8rem; cursor: pointer; background: var(--border); color: var(--text); font-weight: 600; }
-    .chart-container { position: relative; height: 200px; width: 100%; margin-bottom: 15px; }
+    
+    /* GOAL PROGRESS STYLES */
+    .progress-bg { background: var(--border); height: 12px; border-radius: 10px; margin: 10px 0; overflow: hidden; }
+    .progress-fill { background: var(--secondary); height: 100%; transition: width 0.3s; }
+    
+    .chart-container { position: relative; height: 180px; width: 100%; margin-bottom: 15px; }
     .paid { color: var(--secondary); font-weight: bold; }
 `;
 document.head.appendChild(style);
 
 // --- APP INITIALIZATION ---
 const defaultData = { userName: 'Baller', darkMode: false, settings: { initialBalance: 0, rollover: 0, anchorDate: '2026-03-29', periodDays: 14 }, bills: [], spending: [], deposits: [], scheduleMeta: {}, goals: [] };
-let state = JSON.parse(localStorage.getItem(STORAGE_KEY)) || JSON.parse(localStorage.getItem('budgetflow-v12-4')) || defaultData;
+let state = JSON.parse(localStorage.getItem(STORAGE_KEY)) || JSON.parse(localStorage.getItem('budgetflow-v12-5')) || JSON.parse(localStorage.getItem('budgetflow-v12-4')) || defaultData;
 
 let activeTab = 'dashboard';
 let periodOffset = 0;
@@ -222,9 +240,12 @@ function render() {
                 <label><small>Anchor Date</small></label><input type="date" class="field" value="${state.settings.anchorDate}" onchange="state.settings.anchorDate=this.value;save()">
             </div>
             <div class="panel">
-                <button class="btn btn-outline" onclick="exportJSON()">Backup JSON</button>
-                <button class="btn btn-outline" style="margin:10px 0" onclick="importJSON()">Import JSON</button>
-                <button class="btn btn-danger" onclick="if(confirm('WIPE ALL DATA?')) {state=defaultData;save();}">Reset All Data</button>
+                <h3>Data Management</h3>
+                <button class="btn btn-outline" onclick="exportCSV()">Export CSV for Excel</button>
+                <button class="btn btn-outline" style="margin:10px 0" onclick="exportJSON()">Backup Data (JSON)</button>
+                <button class="btn btn-outline" onclick="importJSON()">Import Backup Data</button>
+                <hr style="border:0; border-top:1px solid var(--border); margin:15px 0">
+                <button class="btn btn-danger" onclick="if(confirm('WIPE ALL DATA?')) {state=defaultData;save();}">Reset All</button>
             </div>`;
     }
 }
@@ -247,6 +268,16 @@ window.addBill = () => {
         state.bills.push({ id: Math.random().toString(36).substr(2,9), name: n, amount: a, date: d, freq: f, customDays: c });
     }
     save(); 
+};
+window.exportCSV = () => {
+    let csv = "Type,Name,Amount,Date\n";
+    state.spending.forEach(s => csv += `Spending,${s.name},${s.amount},${s.date}\n`);
+    state.deposits.forEach(d => csv += `Income,${d.name},${d.amount},${d.date}\n`);
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'budget_export.csv';
+    a.click();
 };
 window.exportJSON = () => { const blob = new Blob([JSON.stringify(state)], { type: 'application/json' }); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'budget_backup.json'; a.click(); };
 window.importJSON = () => { const json = prompt("Paste JSON:"); if (json) { try { state = JSON.parse(json); save(); } catch(e) { alert("Invalid data"); } } };
