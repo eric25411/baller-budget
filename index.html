@@ -9,40 +9,28 @@
     <style>
         :root { --primary: #74b9ff; --secondary: #55efc4; --danger: #ff7675; --bg: #f1f2f6; --panel: #ffffff; --text: #2d3436; --border: #dfe6e9; }
         body.dark { --bg: #0f172a; --panel: #1e293b; --text: #f8fafc; --border: #334155; }
-        
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; } 
         body { background-color: var(--bg); color: var(--text); font-family: -apple-system, sans-serif; margin: 0; padding-bottom: 60px; transition: background 0.3s; overflow-x: hidden; }
-        
         #header { background: var(--primary); color: white; padding: 20px 15px; text-align: center; height: 60px; }
-        
-        #tabs-container { 
-            display: flex; overflow-x: auto; background: var(--panel); padding: 12px; gap: 10px; 
-            border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 1000; 
-            scrollbar-width: none; -webkit-overflow-scrolling: touch;
-        }
+        #tabs-container { display: flex; overflow-x: auto; background: var(--panel); padding: 12px; gap: 10px; border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 1000; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
         #tabs-container::-webkit-scrollbar { display: none; }
-        
         .tab-btn { padding: 10px 18px; border-radius: 25px; border: 1px solid var(--border); background: var(--panel); color: var(--text); font-weight: 600; cursor: pointer; white-space: nowrap; font-size: 0.9rem; flex-shrink: 0; outline: none; }
         .tab-btn.active { background: var(--primary); color: white; border-color: var(--primary); }
-        
         .panel { background: var(--panel); margin: 12px; padding: 15px; border-radius: 16px; border: 1px solid var(--border); box-shadow: 0 4px 10px rgba(0,0,0,0.05); width: calc(100% - 24px); }
-        
         .stat-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin: 0 12px; width: calc(100% - 24px); }
         .stat-card { background: var(--panel); padding: 12px 5px; border-radius: 12px; text-align: center; border: 1px solid var(--border); }
         .stat-card small { font-size: 0.7rem; text-transform: uppercase; opacity: 0.7; font-weight: bold; display: block; margin-bottom: 4px; }
         
-        /* THE CALENDAR FIX: Forces height and line-height for Safari */
+        /* SAFARI DATE FIX */
         .field { 
             width: 100%; padding: 12px; margin: 8px 0; border-radius: 10px; border: 1px solid var(--border); 
             background: var(--bg); color: var(--text); font-size: 16px; display: block; 
-            height: 48px !important; min-height: 48px !important; line-height: 1.2;
-            appearance: none; -webkit-appearance: none;
+            height: 48px !important; line-height: 1.2; appearance: none; -webkit-appearance: none; 
         }
 
         .btn { width: 100%; padding: 14px; border-radius: 10px; border: none; font-weight: bold; cursor: pointer; margin-top: 5px; font-size: 1rem; }
         .flex-between { display: flex; justify-content: space-between; align-items: center; }
         .item-row { padding: 12px 0; border-bottom: 1px solid var(--border); font-size: 0.95rem; }
-        
         .progress-bar { background: var(--bg); height: 12px; border-radius: 10px; margin: 10px 0; overflow: hidden; border: 1px solid var(--border); }
         .progress-fill { background: var(--secondary); height: 100%; transition: width 0.5s ease; }
         hr { border: 0; border-top: 1px solid var(--border); margin: 20px 0; }
@@ -55,7 +43,7 @@
 <div id="main-content"></div>
 
 <script>
-    const STORAGE_KEY = 'bf_v20_stable'; 
+    const STORAGE_KEY = 'bf_v21_final_stable'; 
     let state = JSON.parse(localStorage.getItem(STORAGE_KEY)) || {
         userName: 'Manny', darkMode: true,
         settings: { initialBalance: 56.85, rollover: 0, anchorDate: '2026-03-29', periodDays: 14 },
@@ -104,7 +92,7 @@
                 if (b.freq === 'Weekly') curr.setDate(curr.getDate() + 7);
                 else if (b.freq === 'Bi-Weekly') curr.setDate(curr.getDate() + 14);
                 else if (b.freq === 'Monthly') curr.setMonth(curr.getMonth() + 1);
-                else break;
+                else break; 
                 safety++;
             }
         });
@@ -124,13 +112,13 @@
         const p = getPeriod();
         const todayStr = new Date().toISOString().split('T')[0];
 
-        // LOGIC CHECK: Global Running Balance calculation
+        // Global Running Balance
         const totalBillsToDate = getSchedule().filter(r => r.date <= p.endStr).reduce((s, r) => s + (r.actual ?? r.amount), 0);
         const totalSpentToDate = state.spending.filter(s => s.date <= p.endStr).reduce((s, x) => s + x.amount, 0);
         const totalIncomeToDate = state.deposits.filter(d => d.date <= p.endStr).reduce((s, x) => s + x.amount, 0);
         const runningBalance = (state.settings.initialBalance + state.settings.rollover + totalIncomeToDate) - (totalBillsToDate + totalSpentToDate);
 
-        // Period Totals
+        // Period Stats
         const pBills = getSchedule().filter(r => r.date >= p.startStr && r.date <= p.endStr).reduce((s, r) => s + (r.actual ?? r.amount), 0);
         const pSpent = state.spending.filter(s => s.date >= p.startStr && s.date <= p.endStr).reduce((s, x) => s + x.amount, 0);
         const pIncome = state.deposits.filter(d => d.date >= p.startStr && d.date <= p.endStr).reduce((s, x) => s + x.amount, 0);
@@ -143,7 +131,21 @@
         } 
         
         else if (activeTab === 'Bills') {
-            root.innerHTML = `<div class="panel"><h3>${editingBillId ? 'Edit Bill' : 'Add Recurring Bill'}</h3><input id="bn" class="field" placeholder="Name"><input id="ba" type="number" class="field" placeholder="Amount"><input id="bd" type="date" class="field"><select id="bf" class="field"><option>Monthly</option><option>Bi-Weekly</option><option>Weekly</option><option>One-Time</option></select><button class="btn" style="background:var(--primary);color:white" onclick="saveBill()">${editingBillId ? 'Update Bill' : 'Add Bill'}</button>${editingBillId ? `<button class="btn" style="background:var(--border); color:var(--text)" onclick="editingBillId=null;renderContent()">Cancel</button>` : ''}</div><div class="panel">${state.bills.map((b, i) => `<div class="item-row flex-between"><div><b>${b.name}</b><br><small>${b.freq} from ${b.date}</small></div><div style="text-align:right"><b>${format(b.amount)}</b><br><small style="color:var(--primary)" onclick="editBill(${b.id})">Edit</small> | <small style="color:var(--danger)" onclick="deleteBill(${i})">Delete</small></div></div>`).join('')}</div>`;
+            const b = editingBillId ? state.bills.find(x => x.id === editingBillId) : null;
+            root.innerHTML = `<div class="panel"><h3>${b ? 'Edit Bill' : 'Add Recurring Bill'}</h3>
+                <input id="bn" class="field" placeholder="Name" value="${b ? b.name : ''}">
+                <input id="ba" type="number" class="field" placeholder="Amount" value="${b ? b.amount : ''}">
+                <input id="bd" type="date" class="field" value="${b ? b.date : ''}">
+                <select id="bf" class="field">
+                    <option ${b?.freq === 'Monthly' ? 'selected' : ''}>Monthly</option>
+                    <option ${b?.freq === 'Bi-Weekly' ? 'selected' : ''}>Bi-Weekly</option>
+                    <option ${b?.freq === 'Weekly' ? 'selected' : ''}>Weekly</option>
+                    <option ${b?.freq === 'One-Time' ? 'selected' : ''}>One-Time</option>
+                </select>
+                <button class="btn" style="background:var(--primary);color:white" onclick="saveBill()">${b ? 'Update Bill' : 'Add Bill'}</button>
+                ${editingBillId ? `<button class="btn" style="background:var(--border); color:var(--text)" onclick="editingBillId=null;renderContent()">Cancel</button>` : ''}
+            </div>
+            <div class="panel">${state.bills.map((bill, i) => `<div class="item-row flex-between"><div><b>${bill.name}</b><br><small>${bill.freq}</small></div><div style="text-align:right"><b>${format(bill.amount)}</b><br><small style="color:var(--primary)" onclick="editBill(${bill.id})">Edit</small> | <small style="color:var(--danger)" onclick="deleteBill(${i})">Delete</small></div></div>`).join('')}</div>`;
         } 
         
         else if (activeTab === 'Schedule') {
@@ -161,18 +163,14 @@
         } 
         
         else if (activeTab === 'Settings') {
-            root.innerHTML = `<div class="panel"><h3>Settings</h3><label><small>Display Name</small></label><input class="field" value="${state.userName}" onchange="state.userName=this.value;save()"><button class="btn" onclick="state.darkMode=!state.darkMode;save()">${state.darkMode ? '☀️ Light' : '🌙 Dark'} Mode</button><hr><label><small>Starting Balance</small></label><input type="number" class="field" value="${state.settings.initialBalance}" onchange="state.settings.initialBalance=parseFloat(this.value);save()"><label><small>Rollover Savings (Manual)</small></label><input type="number" class="field" value="${state.settings.rollover}" onchange="state.settings.rollover=parseFloat(this.value);save()"><label><small>Anchor Pay Date</small></label><input type="date" class="field" value="${state.settings.anchorDate}" onchange="state.settings.anchorDate=this.value;save()"><label><small>Pay Period Days</small></label><input type="number" class="field" value="${state.settings.periodDays}" onchange="state.settings.periodDays=parseInt(this.value);save()"><hr><button class="btn" style="background:var(--primary); color:white" onclick="exportJSON()">Export Backup</button><button class="btn" style="background:var(--border); margin:10px 0" onclick="importJSON()">Restore Backup</button><button class="btn" style="background:var(--danger); color:white" onclick="resetAll()">Reset Everything</button></div>`;
+            root.innerHTML = `<div class="panel"><h3>Settings</h3><label><small>Display Name</small></label><input class="field" value="${state.userName}" onchange="state.userName=this.value;save()"><button class="btn" onclick="state.darkMode=!state.darkMode;save()">${state.darkMode ? '☀️ Light' : '🌙 Dark'} Mode</button><hr><label><small>Starting Balance</small></label><input type="number" class="field" value="${state.settings.initialBalance}" onchange="state.settings.initialBalance=parseFloat(this.value);save()"><label><small>Rollover Savings (Manual)</small></label><input type="number" class="field" value="${state.settings.rollover}" onchange="state.settings.rollover=parseFloat(this.value);save()"><label><small>Anchor Pay Date</small></label><input type="date" class="field" value="${state.settings.anchorDate}" onchange="state.settings.anchorDate=this.value;save()"><label><small>Pay Period Days</small></label><input type="number" class="field" value="${state.settings.periodDays}" onchange="state.settings.periodDays=parseInt(this.value);save()"><hr><button class="btn" style="background:var(--primary); color:white" onclick="exportJSON()">Export Backup JSON</button><button class="btn" style="background:var(--border); margin:10px 0" onclick="importJSON()">Restore JSON</button><button class="btn" style="background:var(--danger); color:white" onclick="resetAll()">Reset Everything</button></div>`;
         }
     }
 
-    /* Logic Functions */
+    /* Logic */
     window.saveBill = () => {
-        const n = document.getElementById('bn').value;
-        const a = document.getElementById('ba').value;
-        const d = document.getElementById('bd').value;
-        const f = document.getElementById('bf').value;
+        const n = document.getElementById('bn').value, a = document.getElementById('ba').value, d = document.getElementById('bd').value, f = document.getElementById('bf').value;
         if(!n || !a || !d) return;
-
         if(editingBillId) {
             const idx = state.bills.findIndex(b => b.id === editingBillId);
             state.bills[idx] = { ...state.bills[idx], name: n, amount: parseFloat(a), date: d, freq: f };
@@ -183,44 +181,43 @@
         save();
     };
 
-    window.editBill = (id) => {
-        const b = state.bills.find(x => x.id === id);
-        editingBillId = id;
-        renderContent();
-        document.getElementById('bn').value = b.name;
-        document.getElementById('ba').value = b.amount;
-        document.getElementById('bd').value = b.date;
-        document.getElementById('bf').value = b.freq;
-    };
-
-    window.deleteBill = (idx) => { if(confirm("Delete this bill?")) { state.bills.splice(idx,1); save(); } };
+    window.editBill = (id) => { editingBillId = id; renderContent(); window.scrollTo(0,0); };
+    window.deleteBill = (idx) => { if(confirm("Delete bill?")) { state.bills.splice(idx,1); save(); } };
 
     window.handlePayment = (key, defaultAmt) => {
         const meta = state.scheduleMeta[key] || { paid: false, actual: null };
-        const newPaid = !meta.paid;
         let finalAmt = meta.actual ?? defaultAmt;
-
-        if (newPaid) {
-            const userAmt = prompt("Confirm amount paid:", finalAmt);
-            if (userAmt === null) return;
-            finalAmt = parseFloat(userAmt);
+        
+        if (meta.paid) {
+            const choice = confirm("Update payment amount? (Cancel to mark as Unpaid)");
+            if (!choice) { state.scheduleMeta[key].paid = false; save(); return; }
         }
 
-        state.scheduleMeta[key] = { paid: newPaid, actual: finalAmt };
-        save();
+        const userAmt = prompt("Confirm amount paid:", finalAmt);
+        if (userAmt !== null) {
+            state.scheduleMeta[key] = { paid: true, actual: parseFloat(userAmt) };
+            save();
+        }
     };
 
     window.manualAdd = (type) => { 
-        const n = document.getElementById('en').value; 
-        const a = document.getElementById('ea').value; 
-        const d = document.getElementById('ed').value; 
+        const n = document.getElementById('en').value, a = document.getElementById('ea').value, d = document.getElementById('ed').value;
         if(n && a && d) { state[type].push({ name: n, amount: parseFloat(a), date: d }); save(); } 
     };
 
-    window.addGoal = () => { const n = document.getElementById('gn').value; const t = document.getElementById('gt').value; if(n && t) { if(!state.goals) state.goals = []; state.goals.push({ name: n, target: parseFloat(t) }); save(); } };
-    window.exportJSON = () => { const blob = new Blob([JSON.stringify(state)], { type: 'application/json' }); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `budget_backup.json`; a.click(); };
-    window.importJSON = () => { const input = prompt("Paste your Backup JSON text here:"); if (input) { try { state = JSON.parse(input); save(); } catch(e) { alert("Invalid backup format."); } } };
-    window.resetAll = () => { if(confirm("Permanently delete data?")) { localStorage.removeItem(STORAGE_KEY); location.reload(); } };
+    window.addGoal = () => { const n = document.getElementById('gn').value, t = document.getElementById('gt').value; if(n && t) { if(!state.goals) state.goals = []; state.goals.push({ name: n, target: parseFloat(t) }); save(); } };
+    
+    window.exportJSON = () => { 
+        const blob = new Blob([JSON.stringify(state)], { type: 'application/json' }); 
+        const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `budgetflow_backup.json`; a.click(); 
+    };
+    
+    window.importJSON = () => { 
+        const input = prompt("Paste your JSON backup text here:"); 
+        if (input) { try { state = JSON.parse(input); save(); } catch(e) { alert("Invalid JSON format."); } } 
+    };
+
+    window.resetAll = () => { if(confirm("Permanently delete ALL data?")) { localStorage.removeItem(STORAGE_KEY); location.reload(); } };
 
     function initChart(b, s, i) {
         const canvas = document.getElementById('budgetChart');
