@@ -41,15 +41,16 @@
         }
         .tab-btn.active { opacity: 1; color: var(--primary); border-bottom: 3px solid var(--primary); }
 
+        /* Resilient Flexbox Engine: Immune to Safari Zooming */
         #swipe-wrapper {
             display: flex; 
-            width: 700vw; 
+            width: 100%; 
             height: calc(100dvh - 120px); 
             transition: transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
         }
         .view-page { 
-            width: 100vw; 
-            flex-shrink: 0;
+            flex: 0 0 100%; /* Forces each page to be exactly 1 screen wide perfectly */
+            width: 100%; 
             height: 100%; overflow-y: auto; padding-bottom: 80px; box-sizing: border-box; 
         }
 
@@ -58,7 +59,8 @@
         .field { 
             width: 100%; height: 46px; padding: 0 14px; margin: 8px 0; border-radius: 10px; 
             border: 1px solid var(--border); background: var(--bg); color: var(--text);
-            box-sizing: border-box; font-size: 16px; font-family: inherit;
+            box-sizing: border-box; font-family: inherit;
+            font-size: 16px !important; /* THE ANTI-ZOOM LOCK FOR IOS */
             -webkit-appearance: none; appearance: none; 
         }
         input[type="date"].field { line-height: 46px; }
@@ -160,7 +162,7 @@
             while (curr <= limit && safety < 100) {
                 const dStr = curr.toISOString().split('T')[0];
                 
-                // Hybrid Logic: Stop generating if the bill has expired
+                // Hybrid Logic
                 if (b.isTemporary) {
                     if (b.endType === 'date' && b.endDate && dStr > b.endDate) break;
                     if (b.endType === 'count' && paymentsMade >= b.paymentCount) break;
@@ -172,7 +174,7 @@
                     rows.push({ ...b, rowKey: key, date: dStr, actual: meta.actual, paid: !!meta.paid });
                 }
                 
-                paymentsMade++; // Increment for each generated date
+                paymentsMade++;
 
                 if (b.freq === 'Weekly') curr.setDate(curr.getDate() + 7);
                 else if (b.freq === 'Bi-Weekly') curr.setDate(curr.getDate() + 14);
@@ -215,7 +217,8 @@
         const tabsHtml = TABS.map((t, i) => `<button id="tab-btn-${i}" class="tab-btn ${i === activeIndex ? 'active' : ''}" onclick="goToPage(${i})">${t}</button>`).join('');
         document.getElementById('tabs-container').innerHTML = tabsHtml;
 
-        document.getElementById('swipe-wrapper').style.transform = `translateX(-${activeIndex * 100}vw)`;
+        // Slide using precise parent-relative percentage math
+        document.getElementById('swipe-wrapper').style.transform = `translateX(-${activeIndex * 100}%)`;
         
         const activeTabBtn = document.getElementById(`tab-btn-${activeIndex}`);
         if(activeTabBtn) activeTabBtn.scrollIntoView({behavior: 'smooth', inline: 'center'});
