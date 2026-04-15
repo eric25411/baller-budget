@@ -43,12 +43,12 @@
 
         #swipe-wrapper {
             display: flex; 
-            width: 700vw; /* Exact viewport widths prevent bleeding */
+            width: 700vw; 
             height: calc(100dvh - 120px); 
             transition: transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
         }
         .view-page { 
-            width: 100vw; /* Perfect screen fit */
+            width: 100vw; 
             flex-shrink: 0;
             height: 100%; overflow-y: auto; padding-bottom: 80px; box-sizing: border-box; 
         }
@@ -78,6 +78,9 @@
         #bottom-sheet.open { bottom: 0; }
         #sheet-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: none; z-index: 999; }
         .sheet-handle { width: 40px; height: 5px; background: var(--border); border-radius: 5px; margin: 0 auto 15px auto; }
+        
+        .temp-bill-box { background: rgba(0,0,0,0.03); padding: 15px; border-radius: 10px; border: 1px solid var(--border); margin-bottom: 15px; }
+        body.dark .temp-bill-box { background: rgba(255,255,255,0.03); }
     </style>
 </head>
 <body>
@@ -117,7 +120,7 @@
     const TABS = ['Dashboard', 'Bills', 'Schedule', 'Spending', 'Deposits', 'Goals', 'Settings'];
     
     let state = JSON.parse(localStorage.getItem(STORAGE_KEY)) || {
-        userName: 'Baller', darkMode: false,
+        userName: 'Manny', darkMode: true,
         settings: { initialBalance: 56.85, rollover: 0, anchorDate: '2026-03-05', periodDays: 14 },
         bills: [], spending: [], deposits: [], scheduleMeta: {}, goals: []
     };
@@ -148,22 +151,35 @@
     function getSchedule(pStart, pEnd) {
         const rows = [];
         const limit = new Date(pEnd + 'T00:00:00');
+        
         state.bills.forEach(b => {
-            // Legacy JSON fallback: Uses b.date if b.startDate is missing
             let curr = new Date((b.startDate || b.date || state.settings.anchorDate) + 'T00:00:00');
             let safety = 0;
+            let paymentsMade = 0;
+
             while (curr <= limit && safety < 100) {
                 const dStr = curr.toISOString().split('T')[0];
+                
+                // Hybrid Logic: Stop generating if the bill has expired
+                if (b.isTemporary) {
+                    if (b.endType === 'date' && b.endDate && dStr > b.endDate) break;
+                    if (b.endType === 'count' && paymentsMade >= b.paymentCount) break;
+                }
+
                 if (dStr >= pStart && dStr <= pEnd) {
                     const key = `${b.id}_${dStr}`;
                     const meta = state.scheduleMeta[key] || {};
                     rows.push({ ...b, rowKey: key, date: dStr, actual: meta.actual, paid: !!meta.paid });
                 }
+                
+                paymentsMade++; // Increment for each generated date
+
                 if (b.freq === 'Weekly') curr.setDate(curr.getDate() + 7);
                 else if (b.freq === 'Bi-Weekly') curr.setDate(curr.getDate() + 14);
                 else if (b.freq === 'Monthly') curr.setMonth(curr.getMonth() + 1);
-                else if (b.freq === 'Custom' && b.customDays) curr.setDate(curr.getDate() + parseInt(b.customDays)); // Supports custom intervals
+                else if (b.freq === 'Custom' && b.customDays) curr.setDate(curr.getDate() + parseInt(b.customDays)); 
                 else break; 
+                
                 safety++;
             }
         });
@@ -237,32 +253,49 @@
                 <input id="bName" class="field" placeholder="Name" value="${bEdit ? bEdit.name : ''}">
                 <input id="bAmount" type="number" class="field" placeholder="Amount" value="${bEdit ? bEdit.amount : ''}">
                 <input id="bDate" type="date" class="field" value="${bEdit ? (bEdit.startDate || bEdit.date || '') : ''}">
-                <select id="bFreq" class="field">
+                
+                <select id="bFreq" class="field" onchange="document.getElementById('bCustom').style.display = this.value === 'Custom' ? 'block' : 'none'">
                     <option ${bEdit?.freq === 'Monthly' ? 'selected' : ''}>Monthly</option>
                     <option ${bEdit?.freq === 'Weekly' ? 'selected' : ''}>Weekly</option>
                     <option ${bEdit?.freq === 'Bi-Weekly' ? 'selected' : ''}>Bi-Weekly</option>
                     <option ${bEdit?.freq === 'Custom' ? 'selected' : ''}>Custom</option>
                 </select>
                 <input id="bCustom" type="number" class="field" placeholder="Custom Days (e.g. 14)" style="display:${bEdit?.freq === 'Custom' ? 'block' : 'none'};" value="${bEdit ? (bEdit.customDays || '') : ''}">
+                
+                <div style="margin: 15px 0 10px 0; display: flex; align-items: center; gap: 10px;">
+                    <input type="checkbox" id="bIsTemp" style="width:20px; height:20px;" ${bEdit?.isTemporary ? 'checked' : ''} onchange="document.getElementById('tempSettings').style.display = this.checked ? 'block' : 'none'">
+                    <label for="bIsTemp" style="font-weight:bold; font-size: 15px;">Is this a temporary bill?</label>
+                </div>
+                
+                <div id="tempSettings" class="temp-bill-box" style="display:${bEdit?.isTemporary ? 'block' : 'none'};">
+                    <select id="bEndType" class="field" style="margin-top:0;" onchange="
+                        document.getElementById('bEndDate').style.display = this.value === 'date' ? 'block' : 'none';
+                        document.getElementById('bEndCount').style.display = this.value === 'count' ? 'block' : 'none';
+                    ">
+                        <option value="date" ${bEdit?.endType === 'date' ? 'selected' : ''}>Ends on a Date</option>
+                        <option value="count" ${bEdit?.endType === 'count' ? 'selected' : ''}>Ends after X Payments</option>
+                    </select>
+                    <input id="bEndDate" type="date" class="field" style="display:${bEdit?.endType !== 'count' ? 'block' : 'none'};" value="${bEdit?.endDate || ''}">
+                    <input id="bEndCount" type="number" class="field" placeholder="Total Payments (e.g. 4)" style="display:${bEdit?.endType === 'count' ? 'block' : 'none'};" value="${bEdit?.paymentCount || ''}">
+                </div>
+
                 <button class="btn" style="background:var(--primary); color:white" onclick="handleSaveBill()">${bEdit ? 'Update Bill' : 'Add Bill'}</button>
                 ${bEdit ? `<button class="btn" style="background:var(--bg); color:var(--text)" onclick="editingBillIndex=null;render()">Cancel</button>` : ''}
             </div>
             <div class="panel">
-                ${state.bills.map((b, i) => `
+                ${state.bills.map((b, i) => {
+                    let endStr = '';
+                    if (b.isTemporary) {
+                        endStr = b.endType === 'date' ? ` (Until ${b.endDate})` : ` (${b.paymentCount} payments)`;
+                    }
+                    return `
                     <div class="item-row">
-                        <div><strong style="font-size:16px">${b.name}</strong><br><small style="opacity:0.7">${b.freq} ${b.startDate || b.date ? 'from ' + (b.startDate || b.date) : ''}</small></div>
+                        <div><strong style="font-size:16px">${b.name}</strong><br><small style="opacity:0.7">${b.freq} ${b.startDate || b.date ? 'from ' + (b.startDate || b.date) : ''}${endStr}</small></div>
                         <div style="text-align:right"><strong>${format(b.amount)}</strong><br>
                         <span class="action-link" onclick="startEdit(${i})">Edit</span> | <span class="danger-link" onclick="deleteItem('bills', ${i})">Delete</span></div>
-                    </div>`).join('') || '<p style="opacity:0.6; text-align:center;">No bills configured.</p>'}
+                    </div>`;
+                }).join('') || '<p style="opacity:0.6; text-align:center;">No bills configured.</p>'}
             </div>`;
-
-        // Add event listener to show/hide custom days input
-        const freqSelect = document.getElementById('bFreq');
-        if (freqSelect) {
-            freqSelect.addEventListener('change', (e) => {
-                document.getElementById('bCustom').style.display = e.target.value === 'Custom' ? 'block' : 'none';
-            });
-        }
 
         const schedList = getSchedule(p.startStr, p.endStr);
         document.getElementById('view-schedule').innerHTML = nav + `
@@ -384,9 +417,19 @@
         const customDays = document.getElementById('bCustom') ? document.getElementById('bCustom').value : 0;
         const startDate = document.getElementById('bDate').value || state.settings.anchorDate;
         
+        // Hybrid Additions
+        const isTemporary = document.getElementById('bIsTemp').checked;
+        const endType = document.getElementById('bEndType').value;
+        const endDate = document.getElementById('bEndDate').value;
+        const paymentCount = parseInt(document.getElementById('bEndCount').value) || 0;
+        
         if (!name || isNaN(amount)) return;
         
-        const billData = { name, amount, freq, startDate, customDays, id: editingBillIndex !== null ? state.bills[editingBillIndex].id : Date.now() };
+        const billData = { 
+            name, amount, freq, startDate, customDays, 
+            isTemporary, endType, endDate, paymentCount,
+            id: editingBillIndex !== null ? state.bills[editingBillIndex].id : Date.now() 
+        };
 
         if (editingBillIndex !== null) {
             state.bills[editingBillIndex] = billData;
