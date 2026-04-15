@@ -17,11 +17,10 @@
             background-color: var(--bg); color: var(--text); 
             font-family: -apple-system, BlinkMacSystemFont, sans-serif;
             margin: 0; 
-            height: 100dvh; /* FIX: Dynamic viewport height prevents address bar crunch */
+            height: 100dvh; 
             overflow: hidden; 
         }
         
-        /* FIX: env(safe-area-inset-top) forces it below the iPhone notch */
         #header { 
             background: var(--primary); color: white; 
             padding: max(20px, env(safe-area-inset-top)) 20px 15px; 
@@ -43,11 +42,16 @@
         .tab-btn.active { opacity: 1; color: var(--primary); border-bottom: 3px solid var(--primary); }
 
         #swipe-wrapper {
-            display: flex; width: 700%; 
-            height: calc(100dvh - 120px); /* FIX: Match dynamic height */
+            display: flex; 
+            width: 700vw; /* Exact viewport widths prevent bleeding */
+            height: calc(100dvh - 120px); 
             transition: transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
         }
-        .view-page { width: 14.2857%; height: 100%; overflow-y: auto; padding-bottom: 80px; box-sizing: border-box; }
+        .view-page { 
+            width: 100vw; /* Perfect screen fit */
+            flex-shrink: 0;
+            height: 100%; overflow-y: auto; padding-bottom: 80px; box-sizing: border-box; 
+        }
 
         .panel { background: var(--panel); margin: 15px 12px; padding: 20px; border-radius: 16px; border: 1px solid var(--border); box-shadow: 0 2px 10px rgba(0,0,0,0.03); }
         
@@ -145,7 +149,8 @@
         const rows = [];
         const limit = new Date(pEnd + 'T00:00:00');
         state.bills.forEach(b => {
-            let curr = new Date((b.startDate || state.settings.anchorDate) + 'T00:00:00');
+            // Legacy JSON fallback: Uses b.date if b.startDate is missing
+            let curr = new Date((b.startDate || b.date || state.settings.anchorDate) + 'T00:00:00');
             let safety = 0;
             while (curr <= limit && safety < 100) {
                 const dStr = curr.toISOString().split('T')[0];
@@ -157,6 +162,7 @@
                 if (b.freq === 'Weekly') curr.setDate(curr.getDate() + 7);
                 else if (b.freq === 'Bi-Weekly') curr.setDate(curr.getDate() + 14);
                 else if (b.freq === 'Monthly') curr.setMonth(curr.getMonth() + 1);
+                else if (b.freq === 'Custom' && b.customDays) curr.setDate(curr.getDate() + parseInt(b.customDays)); // Supports custom intervals
                 else break; 
                 safety++;
             }
@@ -193,7 +199,7 @@
         const tabsHtml = TABS.map((t, i) => `<button id="tab-btn-${i}" class="tab-btn ${i === activeIndex ? 'active' : ''}" onclick="goToPage(${i})">${t}</button>`).join('');
         document.getElementById('tabs-container').innerHTML = tabsHtml;
 
-        document.getElementById('swipe-wrapper').style.transform = `translateX(-${activeIndex * (100 / 7)}%)`;
+        document.getElementById('swipe-wrapper').style.transform = `translateX(-${activeIndex * 100}vw)`;
         
         const activeTabBtn = document.getElementById(`tab-btn-${activeIndex}`);
         if(activeTabBtn) activeTabBtn.scrollIntoView({behavior: 'smooth', inline: 'center'});
@@ -230,23 +236,33 @@
                 <h3 style="margin-top:0">${bEdit ? 'Edit Bill' : 'Add Recurring Bill'}</h3>
                 <input id="bName" class="field" placeholder="Name" value="${bEdit ? bEdit.name : ''}">
                 <input id="bAmount" type="number" class="field" placeholder="Amount" value="${bEdit ? bEdit.amount : ''}">
-                <input id="bDate" type="date" class="field" value="${bEdit ? (bEdit.startDate || '') : ''}">
+                <input id="bDate" type="date" class="field" value="${bEdit ? (bEdit.startDate || bEdit.date || '') : ''}">
                 <select id="bFreq" class="field">
                     <option ${bEdit?.freq === 'Monthly' ? 'selected' : ''}>Monthly</option>
                     <option ${bEdit?.freq === 'Weekly' ? 'selected' : ''}>Weekly</option>
                     <option ${bEdit?.freq === 'Bi-Weekly' ? 'selected' : ''}>Bi-Weekly</option>
+                    <option ${bEdit?.freq === 'Custom' ? 'selected' : ''}>Custom</option>
                 </select>
+                <input id="bCustom" type="number" class="field" placeholder="Custom Days (e.g. 14)" style="display:${bEdit?.freq === 'Custom' ? 'block' : 'none'};" value="${bEdit ? (bEdit.customDays || '') : ''}">
                 <button class="btn" style="background:var(--primary); color:white" onclick="handleSaveBill()">${bEdit ? 'Update Bill' : 'Add Bill'}</button>
                 ${bEdit ? `<button class="btn" style="background:var(--bg); color:var(--text)" onclick="editingBillIndex=null;render()">Cancel</button>` : ''}
             </div>
             <div class="panel">
                 ${state.bills.map((b, i) => `
                     <div class="item-row">
-                        <div><strong style="font-size:16px">${b.name}</strong><br><small style="opacity:0.7">${b.freq}</small></div>
+                        <div><strong style="font-size:16px">${b.name}</strong><br><small style="opacity:0.7">${b.freq} ${b.startDate || b.date ? 'from ' + (b.startDate || b.date) : ''}</small></div>
                         <div style="text-align:right"><strong>${format(b.amount)}</strong><br>
                         <span class="action-link" onclick="startEdit(${i})">Edit</span> | <span class="danger-link" onclick="deleteItem('bills', ${i})">Delete</span></div>
                     </div>`).join('') || '<p style="opacity:0.6; text-align:center;">No bills configured.</p>'}
             </div>`;
+
+        // Add event listener to show/hide custom days input
+        const freqSelect = document.getElementById('bFreq');
+        if (freqSelect) {
+            freqSelect.addEventListener('change', (e) => {
+                document.getElementById('bCustom').style.display = e.target.value === 'Custom' ? 'block' : 'none';
+            });
+        }
 
         const schedList = getSchedule(p.startStr, p.endStr);
         document.getElementById('view-schedule').innerHTML = nav + `
@@ -362,14 +378,21 @@
     };
 
     window.handleSaveBill = () => {
-        const name = document.getElementById('bName').value, amount = parseFloat(document.getElementById('bAmount').value), freq = document.getElementById('bFreq').value;
+        const name = document.getElementById('bName').value;
+        const amount = parseFloat(document.getElementById('bAmount').value);
+        const freq = document.getElementById('bFreq').value;
+        const customDays = document.getElementById('bCustom') ? document.getElementById('bCustom').value : 0;
         const startDate = document.getElementById('bDate').value || state.settings.anchorDate;
+        
         if (!name || isNaN(amount)) return;
+        
+        const billData = { name, amount, freq, startDate, customDays, id: editingBillIndex !== null ? state.bills[editingBillIndex].id : Date.now() };
+
         if (editingBillIndex !== null) {
-            state.bills[editingBillIndex] = { ...state.bills[editingBillIndex], name, amount, freq, startDate };
+            state.bills[editingBillIndex] = billData;
             editingBillIndex = null;
         } else {
-            state.bills.push({ name, amount, freq, startDate, id: Date.now() });
+            state.bills.push(billData);
         }
         save();
     };
@@ -389,7 +412,7 @@
 
     window.exportCSV = () => {
         let csv = 'Type,Name,Amount,Date\n';
-        state.bills.forEach(b => csv += `Bill,${b.name},${b.amount},${b.startDate||''}\n`);
+        state.bills.forEach(b => csv += `Bill,${b.name},${b.amount},${b.startDate || b.date || ''}\n`);
         state.spending.forEach(s => csv += `Spend,${s.name},${s.amount},${s.date}\n`);
         state.deposits.forEach(d => csv += `Income,${d.name},${d.amount},${d.date}\n`);
         const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], {type:'text/csv'})); a.download = 'budget.csv'; a.click();
