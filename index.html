@@ -166,10 +166,22 @@
 
     let activeIndex = 0;
     let periodOffset = 0;
+    
+    // NEW: Auto-jump to the real-world current period on startup
+    try {
+        const anchorD = new Date(state.settings.anchorDate + 'T00:00:00');
+        const nowD = new Date();
+        nowD.setHours(0,0,0,0);
+        const diffDays = Math.floor((nowD - anchorD) / (1000 * 60 * 60 * 24));
+        periodOffset = Math.floor(diffDays / state.settings.periodDays);
+    } catch(e) {
+        periodOffset = 0;
+    }
+
     let myChart = null;
-    let catChart = null; // New chart instance
+    let catChart = null; 
     let editingBillIndex = null;
-    let editingTransaction = null; // New tracker for editing past expenses
+    let editingTransaction = null; 
 
     const swipeObserver = new IntersectionObserver((entries) => {
         entries.forEach(entry => {
@@ -257,7 +269,7 @@
     function getTotals(offset) {
         let balance = state.settings.initialBalance;
         let pBills = 0, pSpent = 0, pIncome = 0;
-        let categoryBreakdown = {}; // V2 Analytics
+        let categoryBreakdown = {}; 
 
         for (let i = 0; i <= offset; i++) {
             const p = getPeriod(i);
@@ -274,7 +286,6 @@
             if (i === offset) {
                 pIncome = income; pSpent = spent; pBills = bills;
                 
-                // Build Category Data for Current View
                 periodSpent.forEach(item => {
                     const cat = item.category || 'Uncategorized';
                     categoryBreakdown[cat] = (categoryBreakdown[cat] || 0) + parseFloat(item.amount);
@@ -450,7 +461,7 @@
                 <label><small>Manual Rollover</small></label>
                 <input type="number" class="field" value="${state.settings.rollover}" onchange="state.settings.rollover=parseFloat(this.value)||0;save()">
                 <label><small>Anchor Date</small></label>
-                <input type="date" class="field" value="${state.settings.anchorDate}" onchange="state.settings.anchorDate=this.value;save()">
+                <input type="date" class="field" value="${state.settings.anchorDate}" onchange="state.settings.anchorDate=this.value;save();location.reload();">
             </div>
             <div class="panel">
                 <h3 style="margin-top:0">Data Management</h3>
@@ -464,12 +475,10 @@
         if(activeIndex === 0) setTimeout(() => { drawChart(t); drawCategoryChart(t.categoryBreakdown); }, 50);
     }
 
-    // NEW: Handles both Adding and Editing past items
     window.openSheet = (type, editIdx = null) => {
         editingTransaction = { type, idx: editIdx };
         document.getElementById('sheet-title').innerText = editIdx !== null ? 'Edit Transaction' : (type === 'spending' ? 'Add Expense' : 'Add Income');
         
-        // Show category dropdown ONLY for spending
         document.getElementById('qCategory').style.display = type === 'spending' ? 'block' : 'none';
 
         if (editIdx !== null) {
@@ -580,7 +589,6 @@
             
             if (isAdd) {
                 goal.current = (goal.current || 0) + amount;
-                // Auto-tags goal funding as a category so it graphs cleanly
                 state.spending.push({ name: `Goal: ${goal.name}`, amount: amount, date: today, category: 'Goal Funding' });
             } else {
                 if (amount > (goal.current || 0)) { alert("Cannot withdraw more than saved."); return; }
@@ -625,7 +633,6 @@
         });
     }
 
-    // NEW: Render the Category Breakdown Chart
     function drawCategoryChart(catData) {
         const ctx = document.getElementById('categoryChart'); if(!ctx) return;
         if(catChart) catChart.destroy();
@@ -633,7 +640,6 @@
         const labels = Object.keys(catData);
         const data = Object.values(catData);
         
-        // Beautiful vibrant color palette for categories
         const colors = ['#ff9ff3', '#feca57', '#ff6b6b', '#48dbfb', '#1dd1a1', '#5f27cd', '#54a0ff', '#c8d6e5'];
         
         catChart = new Chart(ctx, {
