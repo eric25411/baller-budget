@@ -235,7 +235,7 @@
     function drawChart(t) { const ctx = document.getElementById('budgetChart'); if(!ctx) return; if(myChart) myChart.destroy(); const rem = Math.max(0, t.startBalance + t.income - t.bills - t.spent + state.settings.rollover); myChart = new Chart(ctx, { type: 'doughnut', data: { labels: ['Bills', 'Spent', 'Remaining'], datasets: [{ data: [t.bills, t.spent, rem||1], backgroundColor: ['#ff7675', '#fdcb6e', '#55efc4'], borderWidth: 0 }] }, options: { cutout: '80%', maintainAspectRatio: false, plugins: { legend: { display: false } } } }); }
     function drawCategoryChart(catData) { const ctx = document.getElementById('categoryChart'); if(!ctx) return; if(catChart) catChart.destroy(); catChart = new Chart(ctx, { type: 'doughnut', data: { labels: Object.keys(catData), datasets: [{ data: Object.values(catData), backgroundColor: ['#ff9ff3', '#feca57', '#ff6b6b', '#48dbfb', '#1dd1a1'], borderWidth: 0 }] }, options: { cutout: '60%', maintainAspectRatio: false, plugins: { legend: { display: true, position: 'right' } } } }); }
 
-    if(state.bills.length && !state.bills[0].id) { state.bills.forEach(b => b.id = Date.now() + Math.random()); save(); } else render();
+    if(state.bills.length && !state.bills[0].id) { state.bills.forEach(b => b.id = Date.now() + Math.random()); save(); } else syncFromCloud();
 </script>
 </body>
 </html>
