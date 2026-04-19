@@ -235,32 +235,14 @@ syncFromCloud();
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                password: 'YOUR_SECRET_PASSWORD', 
+                password: 'MannySync2026', 
                 state: state
             })
         });
     } catch (e) { console.error("Sync failed", e); }
     render();
 };
-    // Keep local backup
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-    
-    // Sync to your UpCloud server
-    try {
-        await fetch('http://152.44.36.203:3000/sync', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                password: 'YOUR_SECRET_BALLER_PASSWORD', // Choose a password here
-                state: state
-            })
-        });
-        console.log("Cloud Sync Successful");
-    } catch (e) {
-        console.error("Cloud Sync Failed", e);
-    }
-    render();
-};
+
     const format = (v) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(v || 0);
 
     function getPeriod(offset) {
@@ -706,7 +688,7 @@ syncFromCloud();
     if(state.bills.length && !state.bills[0].id) { state.bills.forEach(b => b.id = Date.now() + Math.random()); save(); } else { render(); }
 async function syncFromCloud() {
     try {
-        const response = await fetch('http://152.44.36.203:3000/data?password=YOUR_SECRET_PASSWORD');
+        const response = await fetch('http://152.44.36.203:3000/data?password=MannySync2026');
         if (response.ok) {
             const cloudData = await response.json();
             if (cloudData && Object.keys(cloudData).length > 0) {
